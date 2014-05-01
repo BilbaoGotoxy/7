@@ -1,0 +1,1971 @@
+#include <Date.au3>
+#include <GuiComboBox.au3>
+#include <GUIConstantsEx.au3>
+#include <GuiEdit.au3>
+#include <GuiListView.au3>
+#include <IE.au3> 
+#include <ProgressConstants.au3>
+#include <String.au3>
+#include <SQLite.au3>
+#include <SQLite.dll.au3>
+#include <WindowsConstants.au3>
+
+;Shutdown(4)  ; shutdown erzwingen
+
+Local $name, $passwort, $server, $logincheck, $runcheck, $user_input, $passwort_input, $server_input
+
+GUIRegisterMsg($WM_NOTIFY, "WM_Notify_Events")
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; GUI
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+Opt("GUIOnEventMode", 1)
+GUICreate("obot - v1.0 (21.07.2012)", 779, 472)
+GUISetOnEvent($GUI_EVENT_CLOSE, "_exit")
+
+GUICtrlCreateButton("Login", 697, 6, 75, 25)
+GUICtrlSetOnEvent(-1, "_Login") ;
+	
+GUICtrlCreateButton("CLEAR DB", 600, 6, 75, 25)
+GUICtrlSetOnEvent(-1, "_cleardb")
+	
+GUICtrlCreateTab(8, 16, 765, 449) ;tabs beginnen
+;;;;;;;;;;;;;;;;;;;;;;;;;
+; WARTESCHLANGE TAB
+;;;;;;;;;;;;;;;;;;;;;;;;;
+GUICtrlCreateTabItem("Übersicht") ;create first tab
+	GUICtrlCreateGroup("Warteschelschlange", 19, 48, 442, 401)
+	
+		$start_button = GUICtrlCreateButton("Start", 27, 72, 75, 25)
+		GUICtrlSetOnEvent(-1, "_start")
+		GUICtrlSetState($start_button, $GUI_DISABLE)
+		
+		$stop_button = GUICtrlCreateButton("Stop", 107, 72, 75, 25)
+		GUICtrlSetOnEvent(-1, "_stop")
+		GUICtrlSetState($stop_button, $GUI_DISABLE)
+	
+		$planet_combo = GUICtrlCreateCombo("Planet:", 267, 72, 185, 25, $CBS_DROPDOWNLIST)
+		GUICtrlSetOnEvent(-1, "_PlanetsCombo")
+		GUICtrlSetState($planet_combo, $GUI_DISABLE)
+
+		$forschung_combo = GUICtrlCreateCombo("Forschung:", 28, 117, 145, 25, $CBS_DROPDOWNLIST)
+		GUICtrlSetData(-1, "Energietechnik|Lasertechnik|Ionentechnik|Hyperraumtechnik|Plasmatechnik|Verbrennungstriebwerk|Impulstriebwerk|Hyperraumantrieb|Spionagetechnik|Computertechnik|Astrophysik|Intergalaktisches Forschungsnetzwerk|Gravitonforschung|Waffentechnik|Schildtechnik|Raumschiffpanzerung")
+		GUICtrlSetState($forschung_combo, $GUI_DISABLE)
+		
+		$addresearch_button = GUICtrlCreateButton("ADD", 177, 117, 59, 25)
+		GUICtrlSetOnEvent(-1, "_addresearch")
+		GUICtrlSetState($addresearch_button, $GUI_DISABLE) ;deaktivieren bis planet ausgewählt wird
+
+		$gebaude_combo = GUICtrlCreateCombo("Gebäude:", 28, 143, 145, 25, $CBS_DROPDOWNLIST)
+		GUICtrlSetData(-1, "Metallmine|Kristallmine|Deuteriumsynthetisierer|Solarkraftwerk|Fusionskraftwerk|Metallspeicher|Kristallspeicher|Deuteriumtank|AbgeschirmtesMetallversteck|UnterirdischesKristallversteck|MeeresgrundDeuteriumversteck|Roboterfabrik|Raumschiffswerft|Forschungslabor|Allianzdepot|Raketensilo|Nanitefabrik|Terraformer")
+		GUICtrlSetState($gebaude_combo, $GUI_DISABLE)
+		
+		$addbuilding_button = GUICtrlCreateButton("ADD", 177, 143, 59, 25)
+		GUICtrlSetOnEvent(-1, "_addbuilding")
+		GUICtrlSetState($addbuilding_button, $GUI_DISABLE) ;deaktivieren bis planet ausgewählt wird
+		
+		$verteidigung_combo = GUICtrlCreateCombo("Verteidigung:", 242, 117, 145, 25, $CBS_DROPDOWNLIST)
+		GUICtrlSetData(-1, "Raketenwerfer|LeichtesLasergeschütz|SchweresLasergeschütz|Gaußkanone|Ionengeschütz|Plasmawerfer|KleineSchildkuppel|GroßeSchildkuppel|Abfangrakete|Interplanetarrakete")
+		GUICtrlSetState($verteidigung_combo, $GUI_DISABLE) ;deaktivieren bis planet ausgewählt wird
+		
+		$adddefense_button = GUICtrlCreateButton("ADD", 389, 117, 59, 25)
+		GUICtrlSetOnEvent(-1, "_adddefense")
+		GUICtrlSetState($adddefense_button, $GUI_DISABLE) ;deaktivieren bis planet ausgewählt wird
+		
+		$werft_combo = GUICtrlCreateCombo("Werft:", 242, 143, 145, 25, $CBS_DROPDOWNLIST)
+		GUICtrlSetData(-1, "Leichter Jäger|Schwerer Jäger|Kreuzer|Schlachtschiff|Schlachtkreuzer|Bomber|Zerstörer|Todesstern|Kleiner Transporter|Großer Transporter|Kolonieschiff|Recycler|Spionagesonde|Solarsatellit")
+		GUICtrlSetState($werft_combo, $GUI_DISABLE) ;deaktivieren bis planet ausgewählt wird
+		
+		$addwerft_button = GUICtrlCreateButton("ADD", 389, 143, 59, 25)
+		GUICtrlSetOnEvent(-1, "_addwerft")
+		GUICtrlSetState($addwerft_button, $GUI_DISABLE) ;deaktivieren bis planet ausgewählt wird
+
+		$forschung_listview = GUICtrlCreateListView("", 28, 173, 210, 131)
+		_GUICtrlListView_InsertColumn($forschung_listview, 0, "ID", 0)
+		_GUICtrlListView_InsertColumn($forschung_listview, 1, "Forschung", 206)
+
+		$verteidigung_listview = GUICtrlCreateListView("", 242, 173, 210, 131)
+		_GUICtrlListView_InsertColumn($verteidigung_listview, 0, "ID", 0)			
+		_GUICtrlListView_InsertColumn($verteidigung_listview, 1, "Verteidigung", 206)
+		
+		$gebaude_listview = GUICtrlCreateListView("", 28, 308, 210, 131)
+		_GUICtrlListView_InsertColumn($gebaude_listview, 0, "ID", 0)			
+		_GUICtrlListView_InsertColumn($gebaude_listview, 1, "Gebäude/Anlagen", 206)
+		
+		$werft_listview = GUICtrlCreateListView("", 242, 308, 210, 131)
+		_GUICtrlListView_InsertColumn($werft_listview, 0, "ID", 0)			
+		_GUICtrlListView_InsertColumn($werft_listview, 1, "Werft", 206)
+		
+	GUICtrlCreateGroup("Informationen", 471, 48, 289, 401) ;create group box
+	
+		$rohstoff_planet_combo = GUICtrlCreateCombo("Planet:", 599, 72, 150, 25, $CBS_DROPDOWNLIST)
+		GUICtrlSetOnEvent(-1, "_RohstoffPlanetsCombo")
+		GUICtrlSetState($rohstoff_planet_combo, $GUI_DISABLE)
+		
+		; $aktueller_bau = GUICtrlCreateLabel("Kein Gebäude im bau", 480, 72, 270, 17)
+		$metall_info = GUICtrlCreateLabel("Metall", 480, 92, 270, 18)
+		$kristall_info = GUICtrlCreateLabel("Kristall", 480, 140, 270, 18)
+		$deuterium_info = GUICtrlCreateLabel("Deuterium", 480, 188, 270, 18)
+		DllCall('uxtheme.dll', 'none', 'SetThemeAppProperties', 'int', 0) ; Classic-Style - um die tick animation in den progress bars zu unterbinden
+		$metall_progress = GUICtrlCreateProgress(480, 111, 270, 17)		
+		GUICtrlSetColor(-1, 0x00D228)
+		$kristall_progress = GUICtrlCreateProgress(480, 159, 270, 17)
+		GUICtrlSetColor(-1, 0x00D228)
+		$deuterium_progress = GUICtrlCreateProgress(480, 207, 270, 17)
+		GUICtrlSetColor(-1, 0x00D228)
+		DllCall('uxtheme.dll', 'none', 'SetThemeAppProperties', 'int', 7) ; Windows XP/vista/7 Style wieder aktivieren
+		$Logbox = GUICtrlCreateEdit("", 480, 243, 270, 193)
+		
+;;;;;;;;;;;;;;;;;;;;;;;;;
+; STATUS TAB
+;;;;;;;;;;;;;;;;;;;;;;;;;
+GUICtrlCreateTabItem("Status")
+	GUICtrlCreateGroup("Aktuelle Jobs", 19, 48, 741, 128)
+		$aktuelle_jobs = GUICtrlCreateListView("", 28, 66, 723, 100)
+		_GUICtrlListView_InsertColumn($aktuelle_jobs, 1, "ID", 0)
+		_GUICtrlListView_InsertColumn($aktuelle_jobs, 2, "Gebäude - Forschung", 100)
+		_GUICtrlListView_InsertColumn($aktuelle_jobs, 3, "Level", 90)
+		_GUICtrlListView_InsertColumn($aktuelle_jobs, 4, "Planet", 100)
+		_GUICtrlListView_InsertColumn($aktuelle_jobs, 5, "Erledigt am", 200)
+		_GUICtrlListView_InsertColumn($aktuelle_jobs, 6, "Status", 100)
+	GUICtrlCreateGroup("Fertige Jobs - doppelklick zum löschen", 19, 186, 741, 128)
+		$fertige_jobs = GUICtrlCreateListView("", 28, 204, 723, 100)
+		_GUICtrlListView_InsertColumn($fertige_jobs, 1, "ID", 0)
+		_GUICtrlListView_InsertColumn($fertige_jobs, 2, "Gebäude - Forschung", 100)
+		_GUICtrlListView_InsertColumn($fertige_jobs, 3, "Level", 90)
+		_GUICtrlListView_InsertColumn($fertige_jobs, 4, "Planet", 100)
+		_GUICtrlListView_InsertColumn($fertige_jobs, 5, "Erledigt am", 200)
+		_GUICtrlListView_InsertColumn($fertige_jobs, 6, "Status", 100)
+	GUICtrlCreateGroup("Fehlgeschlagene Jobs - doppelklick zum löschen", 19, 324, 741, 128)
+		$fehlgeschlagene_jobs = GUICtrlCreateListView("", 28, 342, 723, 100)
+		_GUICtrlListView_InsertColumn($fehlgeschlagene_jobs, 1, "ID", 0)
+		_GUICtrlListView_InsertColumn($fehlgeschlagene_jobs, 2, "Gebäude - Forschung", 100)
+		_GUICtrlListView_InsertColumn($fehlgeschlagene_jobs, 3, "Level", 90)
+		_GUICtrlListView_InsertColumn($fehlgeschlagene_jobs, 4, "Planet", 100)
+		_GUICtrlListView_InsertColumn($fehlgeschlagene_jobs, 5, "Erledigt am", 200)
+		_GUICtrlListView_InsertColumn($fehlgeschlagene_jobs, 6, "Status", 100)
+		
+;;;;;;;;;;;;;;;;;;;;;;;;;
+; EINSTELLUNGEN TAB
+;;;;;;;;;;;;;;;;;;;;;;;;;
+GUICtrlCreateTabItem("Einstellungen")
+	GUICtrlCreateGroup("Login", 19, 48, 141, 174)
+		GUICtrlCreateLabel("Name", 28, 63)
+		$name_input = GUICtrlCreateInput("username", 28, 77, 121, 21)
+		GUICtrlCreateLabel("Passwort", 28, 102)
+		$passwort_input = GUICtrlCreateInput("passwort", 28, 116, 121, 21)
+		GUICtrlCreateLabel("Servernummer", 28, 141)
+		$server_input = GUICtrlCreateInput("server", 28, 155, 121, 21)
+		$autologin_checkbox = GUICtrlCreateCheckbox("Automatischer Login", 28, 180)
+	GUICtrlCreateGroup("Browser", 165, 48, 161, 65)
+		$browser_verstecken_checkbox = GUICtrlCreateCheckbox("Browser verstecken?", 176, 63)
+		GUICtrlSetOnEvent(-1, "_browser_verstecken_checkbox")
+		$browser_beenden_checkbox = GUICtrlCreateCheckbox("Browser mit Bot beenden?", 176, 83)
+	GUICtrlCreateGroup("Herunterfahren", 165, 115, 161, 45)
+		$shutdown_checkbox = GUICtrlCreateCheckbox("Ja, Strom ist teuer ^^", 176, 130)
+		
+	GUICtrlCreateButton("Speichern", 28, 285, 123, 25)
+	GUICtrlSetOnEvent(-1, "_savesettings")
+	
+	
+	GUICtrlCreateLabel("Browser verstecken:" & @CRLF _
+						& "   - das browser fenster ist nicht sichtbar" & @CRLF _
+						& "   - bot muss neu gestartet werden falls wir bereits eingelogged sind" & @CRLF _
+						& "" & @CRLF _
+						& "     diese einstellung wird empfohlen" & @CRLF _
+						& "" & @CRLF _
+						& "Browser mit Bot beenden:" & @CRLF _
+						& "   - beendet den browser wenn der bot beendet wird" & @CRLF _
+						& "   - einstellung ist erzwungen wenn der browser versteckt ist" & @CRLF _
+						& "" & @CRLF _
+						& "Herunterfahren:" & @CRLF _
+						& "   - funktioniert noch nicht ^^" & @CRLF _
+						& " " & @CRLF _
+						& "Autologin:" & @CRLF _
+						& "   - logged automatisch ein"  & @CRLF _
+						& "   - falls autologin aktiv ist und wir eine neue server-id eintragen muss"  & @CRLF _
+						& "     der bot neugestartet werden"  & @CRLF _
+						& "", 350, 48, 500, 500)
+	
+GUISetState()
+	
+_startsql()
+_loadsettings()
+_log("bot bereit")
+If $autologin = 1 Then
+	_log("autologin")
+	_login()
+EndIf
+
+; msgbox(0,"",_Timestamp())
+
+While 1
+Sleep(500)
+    If $logincheck = 1 AND $runcheck = 1 Then
+		; If $runcheck = 1 Then
+			_readressources("0") ; 0 = dont spam text in log
+			_CronJobs()
+		; EndIf
+    EndIf
+Wend
+
+
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; LOGIN
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+Func _Login()
+	; _Loadsettings()
+	
+	If $hidebrowser = 1 then
+		GLOBAL $oIE=_IECreate("www.ogame.de", 0, 0) ;browser versteckt
+	Else
+		GLOBAL $oIE=_IECreate("www.ogame.de") ;browser sichtbar
+	EndIf
+
+	$oForm = _IEFormGetCollection($oIE,0) 
+	$oUsername = _IEFormElementGetObjByname($oForm,"login") 
+	$oPassword = _IEFormElementGetObjByName($oForm,"pass") 
+	_IEFormElementSetValue ($oUsername,$name) 
+	_IEFormElementSetValue ($oPassword,$passwort) 
+	$oSelect = _IEFormElementGetObjByName ($oForm, "uni") 
+	_IEFormElementOptionSelect($oSelect, "uni"&$server&".ogame.de", 1, "byValue")
+	_IEFormSubmit($oForm,0) 
+	_IELoadWait($oIE,2000,30000)
+	
+	GLOBAL $HTML = _IEDocReadHTML($oIE)
+    If StringInStr($HTML, 'Logout') Then
+        GLOBAL $logincheck = 1
+		GUICtrlSetState($start_button, $GUI_ENABLE)
+		GUICtrlSetState($stop_button, $GUI_ENABLE)
+		_Log("login erfolgreich")
+		_HTML()
+		_getplanets()
+		_UpdateJoblist()
+		GLOBAL $oIE2=_IECreate("http://uni"&$server&".ogame.de/game/index.php", 0, 0) ;needed for rohstoff planet combo + readressources (this browser should allways be hidden!)
+		_GUICtrlComboBox_SetCurSel($rohstoff_planet_combo, 1)
+		_readressources("1")
+    Else
+        _Log("login fehlgeschlagen")
+    EndIf
+EndFunc
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; GET PLANETS
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+Func _getPlanets()
+	Local $oQuery, $aResult
+	Local $retarr
+	Local $id = "1"
+	
+	
+	_IENavigate($oIE,"http://uni"&$server&".ogame.de/game/index.php?page=overview") 
+	
+	_IELoadWait($oIE)
+	Local $sString = _IEDocReadHTML($oIE)
+	
+	_HTML()
+	Local $nOffset = 1
+	
+	$aPlanet=_StringBetween($sString,"planet-name>","<")
+	$aPlanetID=_StringBetween($sString,"overview&amp;cp=","""")
+	$aKoords = _StringBetween($sString, "class=planet-koords>", "<")
+	
+	For $i = 0 To UBound($aPlanet) - 1
+		$aPlanet[$i] = StringReplace($aPlanet[$i], '"', '') ; " entfernen (bei planeten namen mit leerzeichen
+		;prüfen ob wir bereits diesen planet in der DB haben
+		_SQLite_QuerySingleRow($dbn, "SELECT rowid FROM planets WHERE plaid='"&$aPlanetID[$i]&"' AND uniid='"&$server&"'", $retarr)
+		If $retarr[0] <> "" Then ;ist schon in der datenbank, vorsichtshalber updaten, falls sich planet name oder so geändert hat...
+			_SQLite_Exec($dbn, "UPDATE planets SET planame='"&$aPlanet[$i]&"', placoord='"&$aKoords[$i]&"', plaid='"&$aPlanetID[$i]&"' WHERE (plaid='"&$aPlanetID[$i]&"' AND uniid='"&$server&"')")
+		Else ;ist nicht in der datenbank: hinzufügen
+			_SQLite_Exec($dbn, "INSERT INTO planets (planame, placoord, plaid, uniid) VALUES ('"&$aPlanet[$i]&"','"&$aKoords[$i]&"','"&$aPlanetID[$i]&"','"&$server&"');")
+		EndIf
+		; GUICtrlSetData($planet_combo, "'" & $aPlanet[$i] & "'" & " " & $aKoords[$i] & " " & $aPlanetID[$i] ) ;planet in die gui eintraten
+		GUICtrlSetData($planet_combo, $aPlanet[$i]) ;planet in die gui eintraten
+		GUICtrlSetData($rohstoff_planet_combo, $aPlanet[$i]) ;planet in die gui eintraten
+	Next
+	GUICtrlSetState($planet_combo, $GUI_ENABLE) ;planeten dropdown in der gui aktivieren
+	GUICtrlSetState($rohstoff_planet_combo, $GUI_ENABLE) ;planeten dropdown in der gui aktivieren
+	_Log("planeten ausgelesen")
+EndFunc
+
+
+
+;TESTED AND WORKING FUNCS -> AUSLAGERN IN EINE EXTERNE DATEI ZUM INCLUDEN!!!!
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; GET RESSOURCES
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+Func _readressources($antispam)
+	_IELoadWait($oIE2)
+	LOCAL $sSource = _IEDocReadHTML($oIE2)
+
+	;unnütze class infos entfernen die sonst nur bei stringbetween nerven
+	$sSource = StringReplace($sSource, "undermark", "")
+	$sSource = StringReplace($sSource, "middlemark", "")
+	$sSource = StringReplace($sSource, "overmark", "")
+
+	;aktueller rohstoff bestand
+	$metall=_StringBetween($sSource,"Metall:| Dein Bestand: <span class=''>","</span>")
+	$kristall=_StringBetween($sSource,"Kristall:| Dein Bestand: <span class=''>","</span>")
+	$deuterium=_StringBetween($sSource,"Deuterium:| Dein Bestand: <span class=''>","</span>")
+	
+	;maximaler rohstoffbestand auslesen
+	$max_metall=_StringBetween($sSource,"Metall:| Dein Bestand: <span class=''>"&$metall[0]&"</span><br>Lagerkapazität: <span class=''>","</span>")
+	$max_kristall=_StringBetween($sSource,"Kristall:| Dein Bestand: <span class=''>"&$kristall[0]&"</span><br>Lagerkapazität: <span class=''>","</span>")
+	$max_deuterium=_StringBetween($sSource,"Deuterium:| Dein Bestand: <span class=''>"&$deuterium[0]&"</span><br>Lagerkapazität: <span class=''>","</span>")
+	
+	;rohstoff daten an die GUI übergeben
+	GUICtrlSetData($metall_info, "Metall: "&$metall[0])
+	GUICtrlSetData($metall_progress, (Int(StringReplace($metall[0], ".", "")) / Int(StringReplace($max_metall[0], ".", ""))) * 100)
+	GUICtrlSetData($kristall_info, "Kristall: "&$kristall[0])
+	GUICtrlSetData($kristall_progress, (Int(StringReplace($kristall[0], ".", "")) / Int(StringReplace($max_kristall[0], ".", ""))) * 100)
+	GUICtrlSetData($deuterium_info, "Deuterium: "&$deuterium[0])
+	GUICtrlSetData($deuterium_progress, (Int(StringReplace($deuterium[0], ".", "")) / Int(StringReplace($max_deuterium[0], ".", ""))) * 100)
+	If $antispam = 0 Then
+	Else
+		_Log("rohstoffe ausgelesen")
+	EndIf
+EndFunc
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; ADD BUILDING TO QUEUE
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+Func _addbuilding()
+    Local $oQuery, $aResult
+     If (_GUICtrlComboBox_GetCurSel($gebaude_combo) And Not (_GUICtrlComboBox_GetCurSel($gebaude_combo) == '0')) Then ;Erste Eintrag aus Combo nicht Hinzufügen
+		LOCAL $selplanet = GUICtrlRead($planet_combo)
+        LOCAL $building = GUICtrlRead($gebaude_combo) ; Bekomme Momentanen Eintrag
+	
+		;hole planet id
+		_SQLite_Query($dbn, "SELECT * FROM planets WHERE planame='"&$selplanet&"' AND uniid='"&$server&"'", $oQuery) ;
+        While _SQLite_FetchData($oQuery, $aResult) = $SQLITE_OK
+            LOCAL $sPlaaid = $aResult[3]
+        WEnd
+		
+		;füge auftrag in die buildingsqueue ein
+        _SQLite_Exec($dbn, "INSERT INTO building_queue (building, planetname, planetid, uniid) VALUES ('"&$building&"','"&$selplanet&"','"&$sPlaaid&"','"&$server&"');")
+        _updatebuildings($gebaude_listview, $selplanet)
+     EndIf
+EndFunc
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; ADD RESEARCH TO QUEUE
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+Func _addresearch()
+    Local $oQuery, $aResult
+     If (_GUICtrlComboBox_GetCurSel($forschung_combo) And Not (_GUICtrlComboBox_GetCurSel($forschung_combo) == '0')) Then ;Erste Eintrag aus Combo nicht Hinzufügen
+		LOCAL $selplanet = GUICtrlRead($planet_combo)
+        LOCAL $research = GUICtrlRead($forschung_combo) ; Bekomme Momentanen Eintrag
+	
+		;hole planet id
+		_SQLite_Query($dbn, "SELECT * FROM planets WHERE planame='"&$selplanet&"' AND uniid='"&$server&"'", $oQuery) ;
+        While _SQLite_FetchData($oQuery, $aResult) = $SQLITE_OK
+            LOCAL $sPlaaid = $aResult[3]
+        WEnd
+		
+		;füge auftrag in die researchqueue ein
+        _SQLite_Exec($dbn, "INSERT INTO research_queue (research, planetname, planetid, uniid) VALUES ('"&$research&"','"&$selplanet&"','"&$sPlaaid&"','"&$server&"');")
+        _updateresearch($forschung_listview, $selplanet)
+     EndIf
+EndFunc
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; ADD DEFENSE TO QUEUE
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+Func _adddefense()
+    Local $oQuery, $aResult
+     If (_GUICtrlComboBox_GetCurSel($verteidigung_combo) And Not (_GUICtrlComboBox_GetCurSel($verteidigung_combo) == '0')) Then ;Erste Eintrag aus Combo nicht Hinzufügen
+		LOCAL $selplanet = GUICtrlRead($planet_combo)
+        LOCAL $defense = GUICtrlRead($verteidigung_combo) ; Bekomme Momentanen Eintrag
+	
+		;hole planet id
+		_SQLite_Query($dbn, "SELECT * FROM planets WHERE planame='"&$selplanet&"' AND uniid='"&$server&"'", $oQuery) ;
+        While _SQLite_FetchData($oQuery, $aResult) = $SQLITE_OK
+            LOCAL $sPlaaid = $aResult[3]
+        WEnd
+		
+		;füge auftrag in die researchqueue ein
+        _SQLite_Exec($dbn, "INSERT INTO defense_queue (defense, planetname, planetid, uniid) VALUES ('"&$defense&"','"&$selplanet&"','"&$sPlaaid&"','"&$server&"');")
+        _updatedefense($verteidigung_listview, $selplanet)
+     EndIf
+EndFunc
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; ADD WERFT TO QUEUE
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+Func _addwerft()
+    Local $oQuery, $aResult
+     If (_GUICtrlComboBox_GetCurSel($werft_combo) And Not (_GUICtrlComboBox_GetCurSel($werft_combo) == '0')) Then ;Erste Eintrag aus Combo nicht Hinzufügen
+		LOCAL $selplanet = GUICtrlRead($planet_combo)
+        LOCAL $werft = GUICtrlRead($werft_combo) ; Bekomme Momentanen Eintrag
+	
+		;hole planet id
+		_SQLite_Query($dbn, "SELECT * FROM planets WHERE planame='"&$selplanet&"' AND uniid='"&$server&"'", $oQuery) ;
+        While _SQLite_FetchData($oQuery, $aResult) = $SQLITE_OK
+            LOCAL $sPlaaid = $aResult[3]
+        WEnd
+		
+		;füge auftrag in die researchqueue ein
+        _SQLite_Exec($dbn, "INSERT INTO werft_queue (werft, planetname, planetid, uniid) VALUES ('"&$werft&"','"&$selplanet&"','"&$sPlaaid&"','"&$server&"');")
+        _updatewerft($werft_listview, $selplanet)
+     EndIf
+EndFunc
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; UPDATE BUILDINGS LISTVIEW
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+Func _updatebuildings($Listview, $from)
+	Local $oQuery, $aResult
+	_GUICtrlListView_DeleteAllItems($Listview)
+	;buildingqueue für den gewählten planeten abrufen
+	_SQLite_Query($dbn, "SELECT * FROM building_queue WHERE planetname='"&$from&"' AND uniid='"&$server&"'", $oQuery)
+	While _SQLite_FetchData($oQuery, $aResult) == $SQLITE_OK
+		If Not $aResult[1] = '' Then
+			GUICtrlCreateListViewItem($aResult[0] & "|" & $aResult[1], $Listview)
+		EndIf
+	WEnd
+EndFunc
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; UPDATE RESEARCH LISTVIEW
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+Func _updateresearch($Listview, $from)
+	Local $oQuery, $aResult
+	_GUICtrlListView_DeleteAllItems($Listview)
+	;buildingqueue für den gewählten planeten abrufen
+	_SQLite_Query($dbn, "SELECT * FROM research_queue WHERE planetname='"&$from&"' AND uniid='"&$server&"'", $oQuery)
+	While _SQLite_FetchData($oQuery, $aResult) == $SQLITE_OK
+		If Not $aResult[1] = '' Then
+			GUICtrlCreateListViewItem($aResult[0] & "|" & $aResult[1], $Listview)
+		EndIf
+	WEnd
+EndFunc
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; UPDATE DEFENSE LISTVIEW
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+Func _updatedefense($Listview, $from)
+	Local $oQuery, $aResult
+	_GUICtrlListView_DeleteAllItems($Listview)
+	;buildingqueue für den gewählten planeten abrufen
+	_SQLite_Query($dbn, "SELECT * FROM defense_queue WHERE planetname='"&$from&"' AND uniid='"&$server&"'", $oQuery)
+	While _SQLite_FetchData($oQuery, $aResult) == $SQLITE_OK
+		If Not $aResult[1] = '' Then
+			GUICtrlCreateListViewItem($aResult[0] & "|" & $aResult[1], $Listview)
+		EndIf
+	WEnd
+EndFunc
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; UPDATE WERFT LISTVIEW
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+Func _updatewerft($Listview, $from)
+	Local $oQuery, $aResult
+	_GUICtrlListView_DeleteAllItems($Listview)
+	;buildingqueue für den gewählten planeten abrufen
+	_SQLite_Query($dbn, "SELECT * FROM werft_queue WHERE planetname='"&$from&"' AND uniid='"&$server&"'", $oQuery)
+	While _SQLite_FetchData($oQuery, $aResult) == $SQLITE_OK
+		If Not $aResult[1] = '' Then
+			GUICtrlCreateListViewItem($aResult[0] & "|" & $aResult[1], $Listview)
+		EndIf
+	WEnd
+EndFunc
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; CRON
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+Func _CronJobs()
+    Local $hquery, $aRow, $oQuery, $now = _Timestamp(), $aResult, $hquery
+	
+	;fertige gebäude/anlagen anhand der timestamps abfragen
+    _SQLite_Query($dbn, "SELECT Time,Planet,building,lvl,status,planetid FROM cron WHERE Time < '" & $now & "' AND uniid='"&$server&"' AND (type='resources' OR type='station') AND status='Build...'", $oQuery) ;
+    ; _SQLite_Query($dbn, "SELECT Time,Planet,building,lvl,status,planetid FROM cron WHERE Time < '" & $now & "' AND uniid='"&$server&"' AND (type='resources' OR type='station')", $oQuery) ;
+    While _SQLite_FetchData($oQuery, $aRow) = $SQLITE_OK
+	; _log("test")
+	$qPlanet = $aRow[1]
+        If IsArray($aRow) Then ;fertige jobs gefunden
+            Select
+                Case StringInStr($aRow[4], "Build")
+                    _Log("Check")
+					_readRessources("0")
+                    ; If Not _SQLite_Exec($dbn, "DELETE FROM cron WHERE Time = '" & $aRow[0] & "' AND planetid='"&$aRow[5]&"' AND uniid='"&$server&"' AND (type='resources' OR type='station');") = $SQLITE_OK Then
+                    If Not _SQLite_Exec($dbn, "UPDATE cron SET status='Finished...' WHERE Time = '" & $aRow[0] & "' AND planetid='"&$aRow[5]&"' AND uniid='"&$server&"' AND (type='resources' OR type='station');") = $SQLITE_OK Then
+                    Else
+
+                            _Log("Update Buildings")
+                            _UpdateBuildings($gebaude_listview, $aRow[1])
+                        _LOG($aRow[4])
+                        ;_TrayTip($aRow[1] & " - " & $aRow[2] & " auf Stufe " & $aRow[3] & " ausgebaut!")
+                        TrayTip("Planet: " & $aRow[1], $aRow[2] & " auf Stufe " & $aRow[3] & " ausgebaut!", 5, 1)
+                        Sleep(5000)
+                        TrayTip("Leert einen Traytip", "", 0)
+                        _UpdateJoblist()
+						; _Core()
+                    EndIf
+                Case Else
+            EndSelect
+        EndIf
+    WEnd
+	
+	;fertige forschungen anhand der timestamps abfragen
+    _SQLite_Query($dbn, "SELECT Time,Planet,building,lvl,status,planetid FROM cron WHERE Time < '" & $now & "' AND uniid='"&$server&"' AND type='research' AND status='Build...'", $oQuery) ;
+    While _SQLite_FetchData($oQuery, $aRow) = $SQLITE_OK
+	$qPlanet = $aRow[1]
+        If IsArray($aRow) Then ;fertige jobs gefunden
+            Select
+                Case StringInStr($aRow[4], "Build")
+                    _Log("Check")
+					_readRessources("0")
+                    ; If Not _SQLite_Exec($dbn, "DELETE FROM cron WHERE Time = '" & $aRow[0] & "' AND planetid='"&$aRow[5]&"' AND uniid='"&$server&"' AND type='research';") = $SQLITE_OK Then
+                    If Not _SQLite_Exec($dbn, "UPDATE cron SET status='Finished...' WHERE Time = '" & $aRow[0] & "' AND planetid='"&$aRow[5]&"' AND uniid='"&$server&"' AND type='research';") = $SQLITE_OK Then
+                    Else
+
+                            _Log("Update Buildings")
+                            _UpdateBuildings($forschung_listview, $aRow[1])
+                        _LOG($aRow[4])
+                        ;_TrayTip($aRow[1] & " - " & $aRow[2] & " auf Stufe " & $aRow[3] & " ausgebaut!")
+                        TrayTip("Planet: " & $aRow[1], $aRow[2] & " auf Stufe " & $aRow[3] & " ausgebaut!", 5, 1)
+                        Sleep(5000)
+                        TrayTip("Leert einen Traytip", "", 0)
+                        _UpdateJoblist()
+						; _Core()
+                    EndIf
+                Case Else
+            EndSelect
+        EndIf
+    WEnd
+	
+	;fertige verteidigungen anhand der timestamps abfragen
+    _SQLite_Query($dbn, "SELECT Time,Planet,building,lvl,status,planetid FROM cron WHERE Time < '" & $now & "' AND uniid='"&$server&"' AND type='defense' AND status='Build...' ", $oQuery) ;
+    While _SQLite_FetchData($oQuery, $aRow) = $SQLITE_OK
+	$qPlanet = $aRow[1]
+        If IsArray($aRow) Then ;fertige jobs gefunden
+            Select
+                Case StringInStr($aRow[4], "Build")
+                    _Log("Check")
+					_readRessources("0")
+                    ; If Not _SQLite_Exec($dbn, "DELETE FROM cron WHERE Time = '" & $aRow[0] & "' AND planetid='"&$aRow[5]&"' AND uniid='"&$server&"' AND type='defense';") = $SQLITE_OK Then
+                    If Not _SQLite_Exec($dbn, "UPDATE cron SET status='Finished...' WHERE Time = '" & $aRow[0] & "' AND planetid='"&$aRow[5]&"' AND uniid='"&$server&"' AND type='defense';") = $SQLITE_OK Then
+                    Else
+
+                            _Log("Update Buildings")
+                            _UpdateBuildings($verteidigung_listview, $aRow[1])
+                        _LOG($aRow[4])
+                        ;_TrayTip($aRow[1] & " - " & $aRow[2] & " auf Stufe " & $aRow[3] & " ausgebaut!")
+                        TrayTip("Planet: " & $aRow[1], $aRow[2] & " fertiggestellt!", 5, 1)
+                        Sleep(5000)
+                        TrayTip("Leert einen Traytip", "", 0)
+                        _UpdateJoblist()
+						; _Core()
+                    EndIf
+                Case Else
+            EndSelect
+        EndIf
+    WEnd
+	
+	;fertige werft sachen anhand der timestamps abfragen
+    _SQLite_Query($dbn, "SELECT Time,Planet,building,lvl,status,planetid FROM cron WHERE Time < '" & $now & "' AND uniid='"&$server&"' AND type='shipyard' AND status='Build...'", $oQuery) ;
+    While _SQLite_FetchData($oQuery, $aRow) = $SQLITE_OK
+	$qPlanet = $aRow[1]
+        If IsArray($aRow) Then ;fertige jobs gefunden
+            Select
+                Case StringInStr($aRow[4], "Build")
+                    _Log("Check")
+					_readRessources("0")
+                    ; If Not _SQLite_Exec($dbn, "DELETE FROM cron WHERE Time = '" & $aRow[0] & "' AND planetid='"&$aRow[5]&"' AND uniid='"&$server&"' AND type='shipyard';") = $SQLITE_OK Then
+                    If Not _SQLite_Exec($dbn, "UPDATE cron SET status='Finished...' WHERE Time = '" & $aRow[0] & "' AND planetid='"&$aRow[5]&"' AND uniid='"&$server&"' AND type='shipyard';") = $SQLITE_OK Then
+                    Else
+
+                            _Log("Update Buildings")
+                            _UpdateBuildings($werft_listview, $aRow[1])
+                        _LOG($aRow[4])
+                        ;_TrayTip($aRow[1] & " - " & $aRow[2] & " auf Stufe " & $aRow[3] & " ausgebaut!")
+                        TrayTip("Planet: " & $aRow[1], $aRow[2] & " fertiggestellt!", 5, 1)
+                        Sleep(5000)
+                        TrayTip("Leert einen Traytip", "", 0)
+                        _UpdateJoblist()
+						; _Core()
+                    EndIf
+                Case Else
+            EndSelect
+        EndIf
+    WEnd
+	
+_Core()
+	
+EndFunc
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; CORE
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+Func _Core()
+    Local $oQuery, $aResult, $bResult, $aRow, $hquery
+	
+	
+	$aList = StringSplit(_GUICtrlComboBox_GetList($planet_combo), "|") ;planeten aus der combobox auslesen
+    For $x = 2 To $aList[0] ; bei $var[2] anfangen, weil [0] ist array größe, [1] ist "Planet:"
+		$cPlanet = $aList[$x]
+		
+		_SQLite_Query($dbn, "SELECT plaid FROM planets WHERE planame='"&$cPlanet&"' AND uniid='"&$server&"' ", $oQuery)
+        _SQLite_FetchData($oQuery, $aResult)
+		$cPlanetID = $aResult[0]
+
+		;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+		; GEBÄUDE/ANLAGEN
+		;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+		_SQLite_Query($dbn, "SELECT building,ID FROM building_queue WHERE planetid='" & $cPlanetID & "' AND uniid='" & $server & "' ORDER BY ID ASC LIMIT 1", $oQuery)
+        _SQLite_FetchData($oQuery, $aResult)
+		; _ArrayDisplay($aResult)
+        If Not $aResult[0] = "" Then ;wir haben etwas im building queue gefunden
+            _SQLite_Query($dbn, "SELECT building FROM cron WHERE planet = '" & $cPlanet & "' AND uniid='" & $server & "' AND (type='resources' OR type='station') AND status='Build...';", $oQuery)
+            _SQLite_FetchData($oQuery, $aRow)
+            If $aRow[0] = "" Then
+                $time = _Timestamp()
+                _Select($aResult[0],$aResult[1],$cPlanet,$cPlanetID,"gebäude")
+            EndIf
+        Else
+            ; _Log("Keine Gebäude für " & $cPlanet)
+        EndIf
+
+		;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+		; FORSCHUNGEN
+		;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+		_SQLite_Query($dbn, "SELECT research,ID FROM research_queue WHERE planetid='" & $cPlanetID & "' AND uniid='" & $server & "' ORDER BY ID ASC LIMIT 1", $oQuery)
+        _SQLite_FetchData($oQuery, $aResult)
+		; _ArrayDisplay($aResult)
+        If Not $aResult[0] = "" Then
+            _SQLite_Query($dbn, "SELECT building FROM cron WHERE planet = '" & $cPlanet & "' AND uniid='" & $server & "' AND type='research' AND status='Build...';", $oQuery)
+            _SQLite_FetchData($oQuery, $aRow)
+            If $aRow[0] = "" Then
+                $time = _Timestamp()
+                _Select($aResult[0],$aResult[1],$cPlanet,$cPlanetID,"forschungen")
+            EndIf
+        Else
+            ; _Log("Keine Forschung für " & $cPlanet)
+        EndIf
+		
+		;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+		; VERTEIDIGUNGEN
+		;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+		_SQLite_Query($dbn, "SELECT defense,ID FROM defense_queue WHERE planetid='" & $cPlanetID & "' AND uniid='" & $server & "' ORDER BY ID ASC LIMIT 1", $oQuery)
+        _SQLite_FetchData($oQuery, $aResult)
+		; _ArrayDisplay($aResult)
+        If Not $aResult[0] = "" Then
+            _SQLite_Query($dbn, "SELECT building FROM cron WHERE planet = '" & $cPlanet & "' AND uniid='" & $server & "' AND type='defense' AND status='Build...';", $oQuery)
+            _SQLite_FetchData($oQuery, $aRow)
+            If $aRow[0] = "" Then
+                $time = _Timestamp()
+                _Select($aResult[0],$aResult[1],$cPlanet,$cPlanetID,"verteidigungen")
+            EndIf
+        Else
+            ; _Log("Keine Forschung für " & $cPlanet)
+        EndIf
+		
+		;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+		; WERFT
+		;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+		_SQLite_Query($dbn, "SELECT werft,ID FROM werft_queue WHERE planetid='" & $cPlanetID & "' AND uniid='" & $server & "' ORDER BY ID ASC LIMIT 1", $oQuery)
+        _SQLite_FetchData($oQuery, $aResult)
+		; _ArrayDisplay($aResult)
+        If Not $aResult[0] = "" Then
+            _SQLite_Query($dbn, "SELECT building FROM cron WHERE planet = '" & $cPlanet & "' AND uniid='" & $server & "' AND type='shipyard' AND status='Build...';", $oQuery)
+            _SQLite_FetchData($oQuery, $aRow)
+            If $aRow[0] = "" Then
+                $time = _Timestamp()
+                _Select($aResult[0],$aResult[1],$cPlanet,$cPlanetID,"werft")
+            EndIf
+        Else
+            ; _Log("Keine Forschung für " & $cPlanet)
+        EndIf
+		
+    Next
+	_SQLite_QueryFinalize($oQuery)
+EndFunc
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; AKTIONS AUSWAHL
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+Func _select($sBuilding,$BuildID,$cPlanet,$cPlanetID,$buildFrom)
+    Select
+		;versorgungs bau optionen
+        Case $sBuilding = "Metallmine"
+            Return _builddetails($sBuilding, "resources", "1", $cPlanet, $cPlanetID, $BuildID)
+
+        Case $sBuilding = "Kristallmine"
+            Return _builddetails($sBuilding, "resources", "2", $cPlanet, $cPlanetID, $BuildID)
+
+        Case $sBuilding = "Deuteriumsynthetisierer"
+            Return _builddetails($sBuilding, "resources", "3", $cPlanet, $cPlanetID, $BuildID)
+
+        Case $sBuilding = "Solarkraftwerk"
+            Return _builddetails($sBuilding, "resources", "4", $cPlanet, $cPlanetID, $BuildID)
+
+		Case $sBuilding = "Fusionskraftwerk"
+            Return _builddetails($sBuilding, "resources", "12", $cPlanet, $cPlanetID, $BuildID)
+
+		; Case $sBuilding = "Solarsatellit" AND $buildFrom = "gebäude"
+            ; Return _builddetails($sBuilding, "resources", "212", $cPlanet, $cPlanetID, $BuildID)
+			
+        Case $sBuilding = "Metallspeicher"
+            Return _builddetails($sBuilding, "resources", "22", $cPlanet, $cPlanetID, $BuildID)
+
+        Case $sBuilding = "Kristallspeicher"
+            Return _builddetails($sBuilding, "resources", "23", $cPlanet, $cPlanetID, $BuildID)
+
+        Case $sBuilding = "Deuteriumtank"
+            Return _builddetails($sBuilding, "resources", "24", $cPlanet, $cPlanetID, $BuildID)
+
+		Case $sBuilding = "AbgeschirmtesMetallversteck"
+            Return _builddetails($sBuilding, "resources", "25", $cPlanet, $cPlanetID, $BuildID)
+
+		Case $sBuilding = "UnterirdischesKristallversteck"
+            Return _builddetails($sBuilding, "resources", "26", $cPlanet, $cPlanetID, $BuildID)
+
+		Case $sBuilding = "MeeresgrundDeuteriumversteck"
+            Return _builddetails($sBuilding, "resources", "27", $cPlanet, $cPlanetID, $BuildID)
+
+		;anlagen bau optionen
+        Case $sBuilding = "Roboterfabrik"
+
+            Return _builddetails($sBuilding, "station", "14", $cPlanet, $cPlanetID, $BuildID)
+
+        Case $sBuilding = "Raumschiffswerft"
+
+            Return _builddetails($sBuilding, "station", "21", $cPlanet, $cPlanetID, $BuildID)
+
+        Case $sBuilding = "Forschungslabor"
+
+            Return _builddetails($sBuilding, "station", "31", $cPlanet, $cPlanetID, $BuildID)
+
+        Case $sBuilding = "Allianzdepot"
+
+            Return _builddetails($sBuilding, "station", "34", $cPlanet, $cPlanetID, $BuildID)
+
+        Case $sBuilding = "Raketensilo"
+
+            Return _builddetails($sBuilding, "station", "44", $cPlanet, $cPlanetID, $BuildID)
+
+        Case $sBuilding = "Nanitefabrik"
+
+            Return _builddetails($sBuilding, "station", "15", $cPlanet, $cPlanetID, $BuildID)
+        Case $sBuilding = "Terraformer"
+
+            Return _builddetails($sBuilding, "station", "33", $cPlanet, $cPlanetID, $BuildID)
+			
+		;verteidigungs bau optionen
+        Case $sBuilding = "Raketenwerfer"
+			Return _builddetails($sBuilding, "defense", "401", $cPlanet, $cPlanetID, $BuildID)
+			
+        Case $sBuilding = "LeichtesLasergeschütz"
+			Return _builddetails($sBuilding, "defense", "402", $cPlanet, $cPlanetID, $BuildID)
+			
+        Case $sBuilding = "SchweresLasergeschütz"
+			Return _builddetails($sBuilding, "defense", "403", $cPlanet, $cPlanetID, $BuildID)
+			
+        Case $sBuilding = "Gaußkanone"
+			Return _builddetails($sBuilding, "defense", "404", $cPlanet, $cPlanetID, $BuildID)
+			
+        Case $sBuilding = "Ionengeschütz"
+			Return _builddetails($sBuilding, "defense", "405", $cPlanet, $cPlanetID, $BuildID)
+			
+        Case $sBuilding = "Plasmawerfer"
+			Return _builddetails($sBuilding, "defense", "406", $cPlanet, $cPlanetID, $BuildID)
+			
+        Case $sBuilding = "KleineSchildkuppel"
+			Return _builddetails($sBuilding, "defense", "407", $cPlanet, $cPlanetID, $BuildID)
+			
+        Case $sBuilding = "GroßeSchildkuppel"
+			Return _builddetails($sBuilding, "defense", "408", $cPlanet, $cPlanetID, $BuildID)
+			
+        Case $sBuilding = "Abfangrakete"
+			Return _builddetails($sBuilding, "defense", "502", $cPlanet, $cPlanetID, $BuildID)
+			
+        Case $sBuilding = "Interplanetarrakete"
+			Return _builddetails($sBuilding, "defense", "503", $cPlanet, $cPlanetID, $BuildID)
+			
+		;forschungs optionen
+        Case $sBuilding = "Energietechnik"
+			Return _builddetails($sBuilding, "research", "113", $cPlanet, $cPlanetID, $BuildID)
+			
+        Case $sBuilding = "Lasertechnik"
+			Return _builddetails($sBuilding, "research", "120", $cPlanet, $cPlanetID, $BuildID)
+			
+        Case $sBuilding = "Ionentechnik"
+			Return _builddetails($sBuilding, "research", "121", $cPlanet, $cPlanetID, $BuildID)
+			
+        Case $sBuilding = "Hyperraumtechnik"
+			Return _builddetails($sBuilding, "research", "114", $cPlanet, $cPlanetID, $BuildID)
+			
+        Case $sBuilding = "Plasmatechnik"
+			Return _builddetails($sBuilding, "research", "122", $cPlanet, $cPlanetID, $BuildID)
+			
+        Case $sBuilding = "Verbrennungstriebwerk"
+			Return _builddetails($sBuilding, "research", "115", $cPlanet, $cPlanetID, $BuildID)
+			
+        Case $sBuilding = "Impulstriebwerk"
+			Return _builddetails($sBuilding, "research", "117", $cPlanet, $cPlanetID, $BuildID)
+			
+        Case $sBuilding = "Hyperraumantrieb"
+			Return _builddetails($sBuilding, "research", "118", $cPlanet, $cPlanetID, $BuildID)
+			
+        Case $sBuilding = "Spionagetechnik"
+			Return _builddetails($sBuilding, "research", "106", $cPlanet, $cPlanetID, $BuildID)
+			
+        Case $sBuilding = "Computertechnik"
+			Return _builddetails($sBuilding, "research", "108", $cPlanet, $cPlanetID, $BuildID)
+			
+        Case $sBuilding = "Astrophysik"
+			Return _builddetails($sBuilding, "research", "124", $cPlanet, $cPlanetID, $BuildID)
+			
+        Case $sBuilding = "Intergalaktisches Forschungsnetzwerk"
+			Return _builddetails($sBuilding, "research", "123", $cPlanet, $cPlanetID, $BuildID)
+			
+        Case $sBuilding = "Gravitonforschung"
+			Return _builddetails($sBuilding, "research", "199", $cPlanet, $cPlanetID, $BuildID)
+			
+        Case $sBuilding = "Waffentechnik"
+			Return _builddetails($sBuilding, "research", "109", $cPlanet, $cPlanetID, $BuildID)
+			
+        Case $sBuilding = "Schildtechnik"
+			Return _builddetails($sBuilding, "research", "110", $cPlanet, $cPlanetID, $BuildID)
+			
+        Case $sBuilding = "Raumschiffpanzerung"
+			Return _builddetails($sBuilding, "research", "111", $cPlanet, $cPlanetID, $BuildID)
+			
+		;werft optionen
+        Case $sBuilding = "Leichter Jäger"
+			Return _builddetails($sBuilding, "shipyard", "204", $cPlanet, $cPlanetID, $BuildID)
+			
+        Case $sBuilding = "Schwerer Jäger"
+			Return _builddetails($sBuilding, "shipyard", "205", $cPlanet, $cPlanetID, $BuildID)
+			
+        Case $sBuilding = "Kreuzer"
+			Return _builddetails($sBuilding, "shipyard", "206", $cPlanet, $cPlanetID, $BuildID)
+			
+        Case $sBuilding = "Schlachtschiff"
+			Return _builddetails($sBuilding, "shipyard", "207", $cPlanet, $cPlanetID, $BuildID)
+			
+        Case $sBuilding = "Schlachtkreuzer"
+			Return _builddetails($sBuilding, "shipyard", "215", $cPlanet, $cPlanetID, $BuildID)
+			
+        Case $sBuilding = "Bomber"
+			Return _builddetails($sBuilding, "shipyard", "211", $cPlanet, $cPlanetID, $BuildID)
+			
+        Case $sBuilding = "Zerstörer"
+			Return _builddetails($sBuilding, "shipyard", "213", $cPlanet, $cPlanetID, $BuildID)
+			
+        Case $sBuilding = "Todesstern"
+			Return _builddetails($sBuilding, "shipyard", "214", $cPlanet, $cPlanetID, $BuildID)
+			
+        Case $sBuilding = "Kleiner Transporter"
+			Return _builddetails($sBuilding, "shipyard", "202", $cPlanet, $cPlanetID, $BuildID)
+			
+        Case $sBuilding = "Großer Transporter"
+			Return _builddetails($sBuilding, "shipyard", "203", $cPlanet, $cPlanetID, $BuildID)
+			
+        Case $sBuilding = "Kolonieschiff"
+			Return _builddetails($sBuilding, "shipyard", "208", $cPlanet, $cPlanetID, $BuildID)
+			
+        Case $sBuilding = "Recycler"
+			Return _builddetails($sBuilding, "shipyard", "209", $cPlanet, $cPlanetID, $BuildID)
+			
+        Case $sBuilding = "Spionagesonde"
+			Return _builddetails($sBuilding, "shipyard", "210", $cPlanet, $cPlanetID, $BuildID)
+			
+        Case $sBuilding = "Solarsatellit" AND $buildFrom = "werft"
+			Return _builddetails($sBuilding, "shipyard", "212", $cPlanet, $cPlanetID, $BuildID)
+			
+
+    EndSelect
+EndFunc
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; AUFTRAGS INFOS
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+Func _builddetails($sBuilding, $sSort, $sType, $cPlanet, $cPlanetID, $BuildID)
+    Local $aNeedRes[3]
+    Select
+        Case $sSort = "resources"
+			_IENavigate($oIE,"http://uni"&$server&".ogame.de/game/index.php?page=resources&cp="&$cPlanetID) 
+			_IELoadWait($oIE)
+			GLOBAL $HTML = _IEDocReadHTML($oIE)
+			;klicke auf das gewünschte gebäude um den nötigen quelltext zu erzeugen (nerviges slide in info...) um weitere daten auszulesen...
+				If $sType = 1 Then ;Metallmine
+					$click = _IEGetObjById2($oIE, "details", 0)
+					_IEAction($click, "click")
+					Do 
+						GLOBAL $HTML = _IEDocReadHTML($oIE)
+						Sleep(100)
+					Until StringInStr($HTML, "build-it")
+				ElseIf $sType = 2 Then ;Kristallmine
+					$click = _IEGetObjById2($oIE, "details", 1)
+					_IEAction($click, "click")
+					Do 
+						GLOBAL $HTML = _IEDocReadHTML($oIE)
+						Sleep(100)
+					Until StringInStr($HTML, "build-it")
+				ElseIf $sType = 3 Then ;Deuteriumsynthetisierer
+					$click = _IEGetObjById2($oIE, "details", 2)
+					_IEAction($click, "click")
+					Do 
+						GLOBAL $HTML = _IEDocReadHTML($oIE)
+						Sleep(100)
+					Until StringInStr($HTML, "build-it")
+				ElseIf $sType = 4 Then ;Solarkraftwerk
+					$click = _IEGetObjById2($oIE, "details", 3)
+					_IEAction($click, "click")
+					Do 
+						GLOBAL $HTML = _IEDocReadHTML($oIE)
+						Sleep(100)
+					Until StringInStr($HTML, "build-it")
+				ElseIf $sType = 12 Then ;Fusionskraftwerk
+					$click = _IEGetObjById2($oIE, "details", 4)
+					_IEAction($click, "click")
+					Do 
+						GLOBAL $HTML = _IEDocReadHTML($oIE)
+						Sleep(100)
+					Until StringInStr($HTML, "build-it")
+				ElseIf $sType = 212 Then ;Solarsatellit 
+					$click = _IEGetObjById2($oIE, "details", 5)
+					_IEAction($click, "click")
+					Do 
+						GLOBAL $HTML = _IEDocReadHTML($oIE)
+						Sleep(100)
+					Until StringInStr($HTML, "build-it")
+				ElseIf $sType = 22 Then ;Metallspeicher 
+					$click = _IEGetObjById2($oIE, "details", 6)
+					_IEAction($click, "click")
+					Do 
+						GLOBAL $HTML = _IEDocReadHTML($oIE)
+						Sleep(100)
+					Until StringInStr($HTML, "build-it")	
+				ElseIf $sType = 23 Then ;Kristallspeicher 
+					$click = _IEGetObjById2($oIE, "details", 7)
+					_IEAction($click, "click")
+					Do 
+						GLOBAL $HTML = _IEDocReadHTML($oIE)
+						Sleep(100)
+					Until StringInStr($HTML, "build-it")
+				ElseIf $sType = 24 Then ;Deuteriumtank 
+					$click = _IEGetObjById2($oIE, "details", 8)
+					_IEAction($click, "click")
+					Do 
+						GLOBAL $HTML = _IEDocReadHTML($oIE)
+						Sleep(100)
+					Until StringInStr($HTML, "build-it")
+				ElseIf $sType = 25 Then ;AbgeschirmtesMetallversteck 
+					$click = _IEGetObjById2($oIE, "details", 9)
+					_IEAction($click, "click")
+					Do 
+						GLOBAL $HTML = _IEDocReadHTML($oIE)
+						Sleep(100)
+					Until StringInStr($HTML, "build-it")
+				ElseIf $sType = 26 Then ;UnterirdischesKristallversteck 
+					$click = _IEGetObjById2($oIE, "details", 10)
+					_IEAction($click, "click")
+					Do 
+						GLOBAL $HTML = _IEDocReadHTML($oIE)
+						Sleep(100)
+					Until StringInStr($HTML, "build-it")
+				ElseIf $sType = 27 Then ;MeeresgrundDeuteriumversteck 
+					$click = _IEGetObjById2($oIE, "details", 11)
+					_IEAction($click, "click")
+					Do 
+						GLOBAL $HTML = _IEDocReadHTML($oIE)
+						Sleep(100)
+					Until StringInStr($HTML, "build-it")
+				EndIf
+			
+        Case $sSort = "station"
+			_IENavigate($oIE,"http://uni"&$server&".ogame.de/game/index.php?page=station&cp="&$cPlanetID)  
+			_IELoadWait($oIE)
+			GLOBAL $HTML = _IEDocReadHTML($oIE) 
+				;klicke auf das gewünschte gebäude um den nötigen quelltext zu erzeugen (nerviges slide in info...) um weitere daten auszulesen...
+				If $sType = 14 Then ;Roboterfabrik
+					$click = _IEGetObjById($oIE, "details"&$sType)
+					_IEAction($click, "click")
+					Do 
+						GLOBAL $HTML = _IEDocReadHTML($oIE)
+						Sleep(100)
+					Until StringInStr($HTML, "build-it")
+				ElseIf $sType = 21 Then ;Raumschiffswerft
+					$click = _IEGetObjById($oIE, "details"&$sType)
+					_IEAction($click, "click")
+					Do 
+						GLOBAL $HTML = _IEDocReadHTML($oIE)
+						Sleep(100)
+					Until StringInStr($HTML, "build-it")
+				ElseIf $sType = 31 Then ;Forschungslabor
+					$click = _IEGetObjById($oIE, "details"&$sType)
+					_IEAction($click, "click")
+					Do 
+						GLOBAL $HTML = _IEDocReadHTML($oIE)
+						Sleep(100)
+					Until StringInStr($HTML, "build-it")
+				ElseIf $sType = 34 Then ;Allianzdepot
+					$click = _IEGetObjById($oIE, "details"&$sType)
+					_IEAction($click, "click")
+					Do 
+						GLOBAL $HTML = _IEDocReadHTML($oIE)
+						Sleep(100)
+					Until StringInStr($HTML, "build-it")
+				ElseIf $sType = 44 Then ;Raketensilo
+					$click = _IEGetObjById($oIE, "details"&$sType)
+					_IEAction($click, "click")
+					Do 
+						GLOBAL $HTML = _IEDocReadHTML($oIE)
+						Sleep(100)
+					Until StringInStr($HTML, "build-it")
+				ElseIf $sType = 15 Then ;Nanitefabrik 
+					$click = _IEGetObjById($oIE, "details"&$sType)
+					_IEAction($click, "click")
+					Do 
+						GLOBAL $HTML = _IEDocReadHTML($oIE)
+						Sleep(100)
+					Until StringInStr($HTML, "build-it")
+				ElseIf $sType = 33 Then ;Terraformer 
+					$click = _IEGetObjById($oIE, "details"&$sType)
+					_IEAction($click, "click")
+					Do 
+						GLOBAL $HTML = _IEDocReadHTML($oIE)
+						Sleep(100)
+					Until StringInStr($HTML, "build-it")
+				EndIf
+				
+        Case $sSort = "defense"
+			_IENavigate($oIE,"http://uni"&$server&".ogame.de/game/index.php?page=defense&cp="&$cPlanetID) 
+			_IELoadWait($oIE)
+			GLOBAL $HTML = _IEDocReadHTML($oIE) 
+				;klicke auf das gewünschte gebäude um den nötigen quelltext zu erzeugen (nerviges slide in info...) um weitere daten auszulesen...
+				If $sType = 401 Then ;Raketenwerfer
+					$click = _IEGetObjById($oIE, "details"&$sType)
+					_IEAction($click, "click")
+					Do 
+						GLOBAL $HTML = _IEDocReadHTML($oIE)
+						Sleep(100)
+					Until StringInStr($HTML, "build-it")
+				ElseIf $sType = 402 Then ;LeichtesLasergeschütz
+					$click = _IEGetObjById($oIE, "details"&$sType)
+					_IEAction($click, "click")
+					Do 
+						GLOBAL $HTML = _IEDocReadHTML($oIE)
+						Sleep(100)
+					Until StringInStr($HTML, "build-it")
+				ElseIf $sType = 403 Then ;SchweresLasergeschütz
+					$click = _IEGetObjById($oIE, "details"&$sType)
+					_IEAction($click, "click")
+					Do 
+						GLOBAL $HTML = _IEDocReadHTML($oIE)
+						Sleep(100)
+					Until StringInStr($HTML, "build-it")
+				ElseIf $sType = 404 Then ;Gaußkanone
+					$click = _IEGetObjById($oIE, "details"&$sType)
+					_IEAction($click, "click")
+					Do 
+						GLOBAL $HTML = _IEDocReadHTML($oIE)
+						Sleep(100)
+					Until StringInStr($HTML, "build-it")
+				ElseIf $sType = 405 Then ;Ionengeschütz
+					$click = _IEGetObjById($oIE, "details"&$sType)
+					_IEAction($click, "click")
+					Do 
+						GLOBAL $HTML = _IEDocReadHTML($oIE)
+						Sleep(100)
+					Until StringInStr($HTML, "build-it")
+				ElseIf $sType = 406 Then ;Plasmawerfer 
+					$click = _IEGetObjById($oIE, "details"&$sType)
+					_IEAction($click, "click")
+					Do 
+						GLOBAL $HTML = _IEDocReadHTML($oIE)
+						Sleep(100)
+					Until StringInStr($HTML, "build-it")
+				ElseIf $sType = 407 Then ;KleineSchildkuppel 
+					$click = _IEGetObjById($oIE, "details"&$sType)
+					_IEAction($click, "click")
+					Do 
+						GLOBAL $HTML = _IEDocReadHTML($oIE)
+						Sleep(100)
+					Until StringInStr($HTML, "build-it")
+				ElseIf $sType = 408 Then ;GroßeSchildkuppel 
+					$click = _IEGetObjById($oIE, "details"&$sType)
+					_IEAction($click, "click")
+					Do 
+						GLOBAL $HTML = _IEDocReadHTML($oIE)
+						Sleep(100)
+					Until StringInStr($HTML, "build-it")
+				ElseIf $sType = 502 Then ;Abfangrakete 
+					$click = _IEGetObjById($oIE, "details"&$sType)
+					_IEAction($click, "click")
+					Do 
+						GLOBAL $HTML = _IEDocReadHTML($oIE)
+						Sleep(100)
+					Until StringInStr($HTML, "build-it")
+				ElseIf $sType = 503 Then ;Interplanetarrakete 
+					$click = _IEGetObjById($oIE, "details"&$sType)
+					_IEAction($click, "click")
+					Do 
+						GLOBAL $HTML = _IEDocReadHTML($oIE)
+						Sleep(100)
+					Until StringInStr($HTML, "build-it")
+				EndIf
+				
+        Case $sSort = "research"
+			_IENavigate($oIE,"http://uni"&$server&".ogame.de/game/index.php?page=research&cp="&$cPlanetID) 
+			_IELoadWait($oIE)
+			GLOBAL $HTML = _IEDocReadHTML($oIE) 
+				;klicke auf das gewünschte gebäude um den nötigen quelltext zu erzeugen (nerviges slide in info...) um weitere daten auszulesen...
+				If $sType = 113 Then ;Energietechnik
+					$click = _IEGetObjById($oIE, "details"&$sType)
+					_IEAction($click, "click")
+					Do 
+						GLOBAL $HTML = _IEDocReadHTML($oIE)
+						Sleep(100)
+					Until StringInStr($HTML, "build-it")
+				ElseIf $sType = 120 Then ;Lasertechnik
+					$click = _IEGetObjById($oIE, "details"&$sType)
+					_IEAction($click, "click")
+					Do 
+						GLOBAL $HTML = _IEDocReadHTML($oIE)
+						Sleep(100)
+					Until StringInStr($HTML, "build-it")
+				ElseIf $sType = 121 Then ;Ionentechnik
+					$click = _IEGetObjById($oIE, "details"&$sType)
+					_IEAction($click, "click")
+					Do 
+						GLOBAL $HTML = _IEDocReadHTML($oIE)
+						Sleep(100)
+					Until StringInStr($HTML, "build-it")
+				ElseIf $sType = 114 Then ;Hyperraumtechnik
+					$click = _IEGetObjById($oIE, "details"&$sType)
+					_IEAction($click, "click")
+					Do 
+						GLOBAL $HTML = _IEDocReadHTML($oIE)
+						Sleep(100)
+					Until StringInStr($HTML, "build-it")
+				ElseIf $sType = 122 Then ;Plasmatechnik
+					$click = _IEGetObjById($oIE, "details"&$sType)
+					_IEAction($click, "click")
+					Do 
+						GLOBAL $HTML = _IEDocReadHTML($oIE)
+						Sleep(100)
+					Until StringInStr($HTML, "build-it")
+				ElseIf $sType = 115 Then ;Verbrennungstriebwerk 
+					$click = _IEGetObjById($oIE, "details"&$sType)
+					_IEAction($click, "click")
+					Do 
+						GLOBAL $HTML = _IEDocReadHTML($oIE)
+						Sleep(100)
+					Until StringInStr($HTML, "build-it")
+				ElseIf $sType = 117 Then ;Impulstriebwerk 
+					$click = _IEGetObjById($oIE, "details"&$sType)
+					_IEAction($click, "click")
+					Do 
+						GLOBAL $HTML = _IEDocReadHTML($oIE)
+						Sleep(100)
+					Until StringInStr($HTML, "build-it")
+				ElseIf $sType = 118 Then ;Hyperraumantrieb 
+					$click = _IEGetObjById($oIE, "details"&$sType)
+					_IEAction($click, "click")
+					Do 
+						GLOBAL $HTML = _IEDocReadHTML($oIE)
+						Sleep(100)
+					Until StringInStr($HTML, "build-it")
+				ElseIf $sType = 106 Then ;Spionagetechnik 
+					$click = _IEGetObjById($oIE, "details"&$sType)
+					_IEAction($click, "click")
+					Do 
+						GLOBAL $HTML = _IEDocReadHTML($oIE)
+						Sleep(100)
+					Until StringInStr($HTML, "build-it")
+				ElseIf $sType = 108 Then ;Computertechnik 
+					$click = _IEGetObjById($oIE, "details"&$sType)
+					_IEAction($click, "click")
+					Do 
+						GLOBAL $HTML = _IEDocReadHTML($oIE)
+						Sleep(100)
+					Until StringInStr($HTML, "build-it")
+				ElseIf $sType = 124 Then ;Astrophysik 
+					$click = _IEGetObjById($oIE, "details"&$sType)
+					_IEAction($click, "click")
+					Do 
+						GLOBAL $HTML = _IEDocReadHTML($oIE)
+						Sleep(100)
+					Until StringInStr($HTML, "build-it")
+				ElseIf $sType = 123 Then ;Intergalaktisches Forschungsnetzwerk 
+					$click = _IEGetObjById($oIE, "details"&$sType)
+					_IEAction($click, "click")
+					Do 
+						GLOBAL $HTML = _IEDocReadHTML($oIE)
+						Sleep(100)
+					Until StringInStr($HTML, "build-it")
+				ElseIf $sType = 199 Then ;Gravitonforschung 
+					$click = _IEGetObjById($oIE, "details"&$sType)
+					_IEAction($click, "click")
+					Do 
+						GLOBAL $HTML = _IEDocReadHTML($oIE)
+						Sleep(100)
+					Until StringInStr($HTML, "build-it")
+				ElseIf $sType = 109 Then ;Waffentechnik 
+					$click = _IEGetObjById($oIE, "details"&$sType)
+					_IEAction($click, "click")
+					Do 
+						GLOBAL $HTML = _IEDocReadHTML($oIE)
+						Sleep(100)
+					Until StringInStr($HTML, "build-it")
+				ElseIf $sType = 110 Then ;Schildtechnik 
+					$click = _IEGetObjById($oIE, "details"&$sType)
+					_IEAction($click, "click")
+					Do 
+						GLOBAL $HTML = _IEDocReadHTML($oIE)
+						Sleep(100)
+					Until StringInStr($HTML, "build-it")		
+				ElseIf $sType = 111 Then ;Raumschiffpanzerung 
+					$click = _IEGetObjById($oIE, "details"&$sType)
+					_IEAction($click, "click")
+					Do 
+						GLOBAL $HTML = _IEDocReadHTML($oIE)
+						Sleep(100)
+					Until StringInStr($HTML, "build-it")						
+				EndIf
+				
+        Case $sSort = "shipyard"
+			_IENavigate($oIE,"http://uni"&$server&".ogame.de/game/index.php?page=shipyard&cp="&$cPlanetID) 
+			_IELoadWait($oIE)
+			GLOBAL $HTML = _IEDocReadHTML($oIE) 
+				;klicke auf das gewünschte gebäude um den nötigen quelltext zu erzeugen (nerviges slide in info...) um weitere daten auszulesen...
+				If $sType = 204 Then ;Leichter Jäger
+					$click = _IEGetObjById($oIE, "details"&$sType)
+					_IEAction($click, "click")
+					Do 
+						GLOBAL $HTML = _IEDocReadHTML($oIE)
+						Sleep(100)
+					Until StringInStr($HTML, "build-it")
+				ElseIf $sType = 205 Then ;Schwerer Jäger
+					$click = _IEGetObjById($oIE, "details"&$sType)
+					_IEAction($click, "click")
+					Do 
+						GLOBAL $HTML = _IEDocReadHTML($oIE)
+						Sleep(100)
+					Until StringInStr($HTML, "build-it")
+				ElseIf $sType = 206 Then ;Kreuzer
+					$click = _IEGetObjById($oIE, "details"&$sType)
+					_IEAction($click, "click")
+					Do 
+						GLOBAL $HTML = _IEDocReadHTML($oIE)
+						Sleep(100)
+					Until StringInStr($HTML, "build-it")
+				ElseIf $sType = 207 Then ;Schlachtschiff
+					$click = _IEGetObjById($oIE, "details"&$sType)
+					_IEAction($click, "click")
+					Do 
+						GLOBAL $HTML = _IEDocReadHTML($oIE)
+						Sleep(100)
+					Until StringInStr($HTML, "build-it")
+				ElseIf $sType = 215 Then ;Schlachtkreuzer
+					$click = _IEGetObjById($oIE, "details"&$sType)
+					_IEAction($click, "click")
+					Do 
+						GLOBAL $HTML = _IEDocReadHTML($oIE)
+						Sleep(100)
+					Until StringInStr($HTML, "build-it")
+				ElseIf $sType = 211 Then ;Bomber 
+					$click = _IEGetObjById($oIE, "details"&$sType)
+					_IEAction($click, "click")
+					Do 
+						GLOBAL $HTML = _IEDocReadHTML($oIE)
+						Sleep(100)
+					Until StringInStr($HTML, "build-it")
+				ElseIf $sType = 213 Then ;Zerstörer 
+					$click = _IEGetObjById($oIE, "details"&$sType)
+					_IEAction($click, "click")
+					Do 
+						GLOBAL $HTML = _IEDocReadHTML($oIE)
+						Sleep(100)
+					Until StringInStr($HTML, "build-it")
+				ElseIf $sType = 214 Then ;Todesstern 
+					$click = _IEGetObjById($oIE, "details"&$sType)
+					_IEAction($click, "click")
+					Do 
+						GLOBAL $HTML = _IEDocReadHTML($oIE)
+						Sleep(100)
+					Until StringInStr($HTML, "build-it")
+				ElseIf $sType = 202 Then ;Kleiner Transporter 
+					$click = _IEGetObjById($oIE, "details"&$sType)
+					_IEAction($click, "click")
+					Do 
+						GLOBAL $HTML = _IEDocReadHTML($oIE)
+						Sleep(100)
+					Until StringInStr($HTML, "build-it")
+				ElseIf $sType = 203 Then ;Großer Transporter 
+					$click = _IEGetObjById($oIE, "details"&$sType)
+					_IEAction($click, "click")
+					Do 
+						GLOBAL $HTML = _IEDocReadHTML($oIE)
+						Sleep(100)
+					Until StringInStr($HTML, "build-it")
+				ElseIf $sType = 208 Then ;Kolonieschiff 
+					$click = _IEGetObjById($oIE, "details"&$sType)
+					_IEAction($click, "click")
+					Do 
+						GLOBAL $HTML = _IEDocReadHTML($oIE)
+						Sleep(100)
+					Until StringInStr($HTML, "build-it")
+				ElseIf $sType = 209 Then ;Recycler
+					$click = _IEGetObjById($oIE, "details"&$sType)
+					_IEAction($click, "click")
+					Do 
+						GLOBAL $HTML = _IEDocReadHTML($oIE)
+						Sleep(100)
+					Until StringInStr($HTML, "build-it")
+				ElseIf $sType = 210 Then ;Spionagesonde 
+					$click = _IEGetObjById($oIE, "details"&$sType)
+					_IEAction($click, "click")
+					Do 
+						GLOBAL $HTML = _IEDocReadHTML($oIE)
+						Sleep(100)
+					Until StringInStr($HTML, "build-it")
+				ElseIf $sType = 212 Then ;Solarsatellit 
+					$click = _IEGetObjById($oIE, "details"&$sType)
+					_IEAction($click, "click")
+					Do 
+						GLOBAL $HTML = _IEDocReadHTML($oIE)
+						Sleep(100)
+					Until StringInStr($HTML, "build-it")				
+				EndIF
+					
+        Case Else
+            _Log("Fehler!")
+    EndSelect
+	
+	;Lese Bentötigen Ressourcen aus
+    ; $aTime = StringRegExp($HTML, "time"">\s+([^<]+)", 1)
+	$aTime=_StringBetween($HTML,"class=time>","</SPAN>")
+    $aMetall = StringRegExp($HTML, "title=""\|(\S+)\sMetall""", 3)
+    $aKristall = StringRegExp($HTML, "title=""\|(\S+)\sKristall""", 3)
+    $aDeute = StringRegExp($HTML, "title=""\|(\S+)\sDeuterium""", 3)
+    $iNextlevel = StringRegExp($HTML, "Stufe (\d+)", 3)
+    If IsArray($aMetall) Then
+        $aNeedRes[0] = StringReplace($aMetall[0], ".", "")
+		; MsgBox(0,"metall", $aNeedRes[0])
+    Else
+        $aNeedRes[0] = "0"
+    EndIf
+    If IsArray($aKristall) Then
+        $aNeedRes[1] = StringReplace($aKristall[0], ".", "")
+		; MsgBox(0,"kristall", $aNeedRes[1])
+    Else
+        $aNeedRes[1] = "0"
+    EndIf
+    If IsArray($aDeute) Then
+        $aNeedRes[2] = StringReplace($aDeute[0], ".", "")
+		; MsgBox(0,"deuterium", $aNeedRes[2])
+    Else
+        $aNeedRes[2] = "0"
+    EndIf
+	
+	If Not StringInStr($HTML, "build-it_disabled") Then ;ist möglich
+        $iBuildTime = _CalcBuildtime($aTime[0])
+        _build($sBuilding, $sSort, $sType, $iBuildTime, $cPlanet, $cPlanetID, $BuildID)
+	Else
+		$failtime = _Timestamp()
+
+		If $sSort = "resources" OR $sSort = "station" Then
+			$iNextlevel = StringRegExp($HTML, "Stufe (\d+) ", 3)
+			_SQLite_Exec($dbn, "INSERT INTO Cron (time,planet,planetid,uniid,building,lvl,status,type) VALUES ( '" & $failtime & "','" & $cPlanet & "','" & $cPlanetID & "','" & $server & "','" & $sBuilding & "','" & $iNextlevel+1 & "','Failed...','" & $sSort & "');")
+			_SQLite_Exec($dbn, "DELETE FROM building_queue WHERE ID='"&$BuildID&"' ")
+		ElseIf $sSort = "research" Then
+			$iNextlevel = StringRegExp($HTML, "Stufe (\d+) ", 3)
+			_SQLite_Exec($dbn, "INSERT INTO Cron (time,planet,planetid,uniid,building,lvl,status,type) VALUES ( '" & $failtime & "','" & $cPlanet & "','" & $cPlanetID & "','" & $server & "','" & $sBuilding & "','" & $iNextlevel+1 & "','Failed...','" & $sSort & "');")
+			_SQLite_Exec($dbn, "DELETE FROM research_queue WHERE ID='"&$BuildID&"' ")
+		ElseIf $sSort = "defense" Then
+			_SQLite_Exec($dbn, "INSERT INTO Cron (time,planet,planetid,uniid,building,lvl,status,type) VALUES ( '" & $failtime & "','" & $cPlanet & "','" & $cPlanetID & "','" & $server & "','" & $sBuilding & "','" & $iNextlevel+1 & "','Failed...','" & $sSort & "');")
+			_SQLite_Exec($dbn, "DELETE FROM defense_queue WHERE ID='"&$BuildID&"' ")
+		ElseIf $sSort = "shipyard" Then
+			_SQLite_Exec($dbn, "INSERT INTO Cron (time,planet,planetid,uniid,building,lvl,status,type) VALUES ( '" & $failtime & "','" & $cPlanet & "','" & $cPlanetID & "','" & $server & "','" & $sBuilding & "','" & $iNextlevel+1 & "','Failed...','" & $sSort & "');")
+			_SQLite_Exec($dbn, "DELETE FROM werft_queue WHERE ID='"&$BuildID&"' ")
+		EndIf
+			_UpdateJoblist()
+		_updatebuildings($gebaude_listview, $cPlanet)
+		_updateresearch($forschung_listview, $cPlanet)
+		_updatedefense($verteidigung_listview, $cPlanet)
+		_updatewerft($werft_listview, $cPlanet)
+		_Log("nicht möglich: " & $sBuilding & " wurde aus der warteschlange gelöscht")
+		
+
+		; sleep(5000)
+
+		_Core()
+	EndIf
+EndFunc
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; CLICK BUILD
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+Func _build($sBuilding, $sSort, $sType, $iBuildTime, $cPlanet, $cPlanetID, $BuildID)
+	_IELoadWait($oIE)
+	LOCAL $sSource = _IEDocReadHTML($oIE)
+	
+    Select
+        Case $sSort = "resources" OR $sSort = "station" OR $sSort = "research"
+			If StringInStr($HTML, "ausgebaut") Or StringInStr($HTML, "Zum Ausbau auf Stufe") Then
+				$click = _IEGetObjByClass($oIE, "build-it", 0)
+				_IEAction($click, "click")
+				$iNextlevel = StringRegExp($HTML, "Stufe (\d+) ", 3)
+				_Log("Baue oder Forsche jetzt: " & $sBuilding & " Stufe: " & $iNextlevel[0]+1)
+				_AddNewJob($sBuilding, $BuildID, $cPlanet, $cPlanetID, $iBuildTime, $iNextlevel[0]+1, "Build...", $sSort)
+				; _UpdateJoblw()
+			Else
+				; _Log("nicht möglich: " & $sBuilding)
+			EndIf
+			
+        Case $sSort = "defense" OR $sSort = "shipyard"
+				$click = _IEGetObjByClass($oIE, "build-it", 0)
+				_IEAction($click, "click")
+				$iNextlevel = StringRegExp($HTML, "Stufe (\d+) ", 3)
+				_Log("Baue oder Forsche jetzt: " & $sBuilding)
+				_AddNewJob($sBuilding, $BuildID, $cPlanet, $cPlanetID, $iBuildTime, "", "Build...", $sSort)
+		
+	EndSelect
+EndFunc
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; ADD TO CRON AFTER JOB HAS STARTED
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+Func _AddNewJob($sBuilding, $BuildID, $cPlanet, $cPlanetID, $iBuildTime, $iNextlevel, $status, $sSort)
+    Local $oQuery, $aResult, $aRow
+    $time = _Timestamp()
+    If _SQLite_Exec($dbn, "INSERT INTO Cron (time,planet,planetid,uniid,building,lvl,status,type) VALUES ( '" & $time + $iBuildTime & "','" & $cPlanet & "','" & $cPlanetID & "','" & $server & "','" & $sBuilding & "','" & $iNextlevel & "','" & $status & "','" & $sSort & "');") = $SQLITE_OK Then
+
+		
+		If $sSort = "resources" Then
+			_SQLite_Exec($dbn, "DELETE FROM building_queue WHERE ID='"&$BuildID&"' ")
+		ElseIf $sSort = "station" Then
+			_SQLite_Exec($dbn, "DELETE FROM building_queue WHERE ID='"&$BuildID&"' ")
+		ElseIf $sSort = "research" Then
+			_SQLite_Exec($dbn, "DELETE FROM research_queue WHERE ID='"&$BuildID&"' ")
+		ElseIf $sSort = "defense" Then
+			_SQLite_Exec($dbn, "DELETE FROM defense_queue WHERE ID='"&$BuildID&"' ")
+		ElseIf $sSort = "shipyard" Then
+			_SQLite_Exec($dbn, "DELETE FROM werft_queue WHERE ID='"&$BuildID&"' ")
+		EndIf
+    EndIf
+
+	_UpdateJoblist()
+	_updatebuildings($gebaude_listview, $cPlanet)
+	_updateresearch($forschung_listview, $cPlanet)
+	_updatedefense($verteidigung_listview, $cPlanet)
+	_updatewerft($werft_listview, $cPlanet)
+EndFunc
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; UPDATE JOBLIST (STATUS TAB)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+Func _UpdateJoblist()
+    Local $oQuery, $aRow
+	_GUICtrlListView_DeleteAllItems($aktuelle_jobs)
+	_GUICtrlListView_DeleteAllItems($fehlgeschlagene_jobs)
+	_GUICtrlListView_DeleteAllItems($fertige_jobs)
+    _SQLite_Query($dbn, "SELECT * FROM cron WHERE uniid='"&$server&"' AND status='Build...' ORDER BY time ASC", $oQuery)
+    While _SQLite_FetchData($oQuery, $aRow) = $SQLITE_OK
+        GUICtrlCreateListViewItem($aRow[0] & "|" & $aRow[5] & "|" & $aRow[6] & "|" & $aRow[2] & "|" & _JobDate($aRow[1]) & "|" & $aRow[7], $aktuelle_jobs)
+    WEnd
+	
+    _SQLite_Query($dbn, "SELECT * FROM cron WHERE uniid='"&$server&"' AND status='Failed...' ORDER BY time DESC", $oQuery)
+    While _SQLite_FetchData($oQuery, $aRow) = $SQLITE_OK
+        GUICtrlCreateListViewItem($aRow[0] & "|" & $aRow[5] & "|" & $aRow[6] & "|" & $aRow[2] & "|" & _JobDate($aRow[1]) & "|" & $aRow[7], $fehlgeschlagene_jobs)
+    WEnd
+	
+    _SQLite_Query($dbn, "SELECT * FROM cron WHERE uniid='"&$server&"' AND status='Finished...' ORDER BY time DESC", $oQuery)
+    While _SQLite_FetchData($oQuery, $aRow) = $SQLITE_OK
+        GUICtrlCreateListViewItem($aRow[0] & "|" & $aRow[5] & "|" & $aRow[6] & "|" & $aRow[2] & "|" & _JobDate($aRow[1]) & "|" & $aRow[7], $fertige_jobs)
+    WEnd
+EndFunc
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; WM_NOTIFY event handler
+; GENUTZT FÜR DOPPELKLICK AUF FERTIGE/FAILED LISTVIEW
+; UM DEN DOPPEL GEKLICKTEN EINTRAG ZU LÖSCHEN
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+Func WM_Notify_Events($hWndGUI, $MsgID, $wParam, $lParam)
+    #forceref $hWndGUI, $MsgID, $wParam
+    Local $tagNMHDR, $event, $hwndFrom, $code
+    $tagNMHDR = DllStructCreate("int;int;int", $lParam)
+    If @error Then Return
+    $event = DllStructGetData($tagNMHDR, 3)
+    Select
+        Case $wParam = $fehlgeschlagene_jobs
+            Select
+				 Case $event = $NM_DBLCLK
+					$test = GUICtrlRead(GUICtrlRead($fehlgeschlagene_jobs), 1)
+					$array1 = _StringExplode($test, "|", 0)
+					; msgbox(0,"",$array1[0])
+					_SQLite_Exec($dbn, "DELETE FROM cron WHERE ID = '" & $array1[0] &"' ;")
+					_UpdateJoblist()
+;~                     Consolewrite( "Doppelklick" & @crlf & GUICtrlRead(GUICtrlRead($listview), 1) & @crlf)
+                    ; Consolewrite( $array1[0] & @crlf)
+            EndSelect
+        Case $wParam = $fertige_jobs
+            Select
+				 Case $event = $NM_DBLCLK
+					$test = GUICtrlRead(GUICtrlRead($fertige_jobs), 1)
+					$array1 = _StringExplode($test, "|", 0)
+					; msgbox(0,"",$array1[0])
+					_SQLite_Exec($dbn, "DELETE FROM cron WHERE ID = '" & $array1[0] &"' ;")
+					_UpdateJoblist()
+; ~                     Consolewrite( "Doppelklick" & @crlf & GUICtrlRead(GUICtrlRead($listview), 1) & @crlf)
+                    ; Consolewrite( $array1[0] & @crlf)
+            EndSelect
+    EndSelect
+    $tagNMHDR = 0
+    $event = 0
+    $lParam = 0
+EndFunc
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; CALCULATE BUILD DURATION
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+Func _CalcBuildtime($aTime)
+    Local $iBuildTime, $aFilter, $iHours, $iDays, $iMinutes, $iSeconds
+    $aTime = StringSplit($aTime, " ")
+    For $i = 0 To UBound($aTime) - 1
+        If StringInStr($aTime[$i], "t") Then
+            $aFilter = StringRegExp($aTime[$i], "(\d+)", 3)
+            $iDays = $aFilter[0] * 24 * 3600000
+        EndIf
+        If StringInStr($aTime[$i], "h") Then
+            $aFilter = StringRegExp($aTime[$i], "(\d+)", 3)
+            $iHours = $aFilter[0] * 3600000
+        EndIf
+        If StringInStr($aTime[$i], "m") Then
+            $aFilter = StringRegExp($aTime[$i], "(\d+)", 3)
+            $iMinutes = $aFilter[0] * 60000
+        EndIf
+        If StringInStr($aTime[$i], "s") Then
+            $aFilter = StringRegExp($aTime[$i], "(\d+)", 3)
+            $iSeconds = $aFilter[0] * 1000
+        EndIf
+    Next
+    $iBuildTime = ($iDays + $iHours + $iMinutes + $iSeconds) / 1000 + 60
+    Return $iBuildTime
+EndFunc
+Func _JobDate($iSec)
+    $sNewDate = _DateAdd('s', $iSec, "1970/01/01 00:00:00")
+    Return $sNewDate
+EndFunc
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; LOAD SETTINGS+LOGIN
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+Func _loadsettings()
+    Local $oQuery, $aResult
+    Local $retarr
+	;login daten
+    _SQLite_Query($dbn, "SELECT * FROM logindata", $oQuery)
+    While _SQLite_FetchData($oQuery, $retarr) == $SQLITE_OK
+        GLOBAL $name = $retarr[0]
+        GLOBAL $passwort = $retarr[1]
+        GLOBAL $server = $retarr[2]
+	    GUICtrlSetData($name_input, $name)
+		GUICtrlSetData($passwort_input, $passwort)
+		GUICtrlSetData($server_input, $server)
+    WEnd
+	
+	;settings
+	_SQLite_Query($dbn, "SELECT * FROM settings", $oQuery)
+	While _SQLite_FetchData($oQuery, $aResult) = $SQLITE_OK
+		If $aResult[0] = "hidebrowser" Then
+			Global $hidebrowser = $aResult[1]
+		ElseIf $aResult[0] = "killbrowser" Then
+			Global $killbrowser = $aResult[1]
+		ElseIf $aResult[0] = "shutdown" Then
+			Global $shutdown = $aResult[1]
+		ElseIf $aResult[0] = "autologin" Then
+			Global $autologin = $aResult[1]
+		EndIf
+	WEnd
+	
+	If $hidebrowser = 1 Then
+		GUICtrlSetState($browser_verstecken_checkbox, $GUI_CHECKED)
+		GUICtrlSetState($browser_beenden_checkbox, $GUI_DISABLE)
+		GUICtrlSetState($browser_beenden_checkbox, $GUI_CHECKED)
+	Else
+		GUICtrlSetState($browser_verstecken_checkbox, $GUI_UNCHECKED)
+	EndIf
+	
+	If $hidebrowser = 0 Then
+		If $killbrowser = 1 Then
+			GUICtrlSetState($browser_beenden_checkbox, $GUI_CHECKED)
+		Else
+			GUICtrlSetState($browser_beenden_checkbox, $GUI_UNCHECKED)
+		EndIf
+	EndIf
+	
+	If $shutdown = 1 Then
+		GUICtrlSetState($shutdown_checkbox, $GUI_CHECKED)
+	Else
+		GUICtrlSetState($shutdown_checkbox, $GUI_UNCHECKED)
+	EndIf
+	
+	If $autologin = 1 Then
+		GUICtrlSetState($autologin_checkbox, $GUI_CHECKED)
+	Else
+		GUICtrlSetState($autologin_checkbox, $GUI_UNCHECKED)
+	EndIf
+	
+EndFunc
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; SAVE SETTINGS+LOGIN
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+Func _savesettings()
+    Local $oQuery, $aResult
+    Local $retarr
+    Local $id = "1"
+
+	;prüfen ob wir bereits einen login in der DB haben
+    _SQLite_QuerySingleRow($dbn, "SELECT rowid FROM logindata WHERE rowid='1'", $retarr)
+    If $retarr[0] <> "" Then ;ja wir haben einen, also diesen bitte updaten
+        _SQLite_Exec($dbn, "UPDATE loginData SET username='" & GUICtrlRead($name_input) & "',password='" & GUICtrlRead($passwort_input) & "', server='" & GUICtrlRead($server_input) & "' WHERE rowid='" & $id & "'")
+    Else ;nein wir haben keinen, also datensatz einfügen
+        _SQLite_Exec($dbn, "INSERT INTO loginData (username, password, server) VALUES ('" & GUICtrlRead($user_input) & "','" & GUICtrlRead($passwort_input) & "','" & GUICtrlRead($server_input) & "');")
+    EndIf
+	
+	;autologin
+	If BitAnd(GUICtrlRead($autologin_checkbox),$GUI_CHECKED) = $GUI_CHECKED Then
+		_SQLite_Exec($dbn, "UPDATE settings SET value='1' WHERE name='autologin'")
+	EndIf
+	If BitAnd(GUICtrlRead($autologin_checkbox),$GUI_UNCHECKED) = $GUI_UNCHECKED Then
+		_SQLite_Exec($dbn, "UPDATE settings SET value='0' WHERE name='autologin'")
+	EndIf
+
+	;browser verstecken
+	If BitAnd(GUICtrlRead($browser_verstecken_checkbox),$GUI_CHECKED) = $GUI_CHECKED Then
+		_SQLite_Exec($dbn, "UPDATE settings SET value='1' WHERE name='hidebrowser'")
+		_SQLite_Exec($dbn, "UPDATE settings SET value='1' WHERE name='killbrowser'")
+	EndIf
+	If BitAnd(GUICtrlRead($browser_verstecken_checkbox),$GUI_UNCHECKED) = $GUI_UNCHECKED Then
+		_SQLite_Exec($dbn, "UPDATE settings SET value='0' WHERE name='hidebrowser'")
+	EndIf
+	
+	;browser beenden
+	If BitAnd(GUICtrlRead($browser_verstecken_checkbox),$GUI_UNCHECKED) = $GUI_UNCHECKED Then ;einstellung nur speichern wenn "browser verstecken" inaktiv ist!
+		If BitAnd(GUICtrlRead($browser_beenden_checkbox),$GUI_CHECKED) = $GUI_CHECKED Then
+			_SQLite_Exec($dbn, "UPDATE settings SET value='1' WHERE name='killbrowser'")
+		Else
+			_SQLite_Exec($dbn, "UPDATE settings SET value='0' WHERE name='killbrowser'")
+		EndIf
+	EndIf
+	
+	;shutdown
+	If BitAnd(GUICtrlRead($shutdown_checkbox),$GUI_CHECKED) = $GUI_CHECKED Then
+		_SQLite_Exec($dbn, "UPDATE settings SET value='1' WHERE name='shutdown'")
+	Else
+		_SQLite_Exec($dbn, "UPDATE settings SET value='0' WHERE name='shutdown'")
+	EndIf
+	
+	;jetzt die neuen logindaten in die globalen $vars reinschreiben!
+	_SQLite_Query($dbn, "SELECT * FROM logindata", $oQuery)
+	While _SQLite_FetchData($oQuery, $aResult) = $SQLITE_OK
+		GLOBAL $name = $aResult[0]
+		GLOBAL $passwort = $aResult[1]
+		GLOBAL $server = $aResult[2]
+	WEnd
+	
+	;jetzt die neuen settings in die globalen $vars reinschreiben!
+	_SQLite_Query($dbn, "SELECT * FROM settings", $oQuery)
+	While _SQLite_FetchData($oQuery, $aResult) = $SQLITE_OK
+		If $aResult[0] = "hidebrowser" Then
+			Global $hidebrowser = $aResult[1]
+		ElseIf $aResult[0] = "killbrowser" Then
+			Global $killbrowser = $aResult[1]
+		ElseIf $aResult[0] = "shutdown" Then
+			Global $shutdown = $aResult[1]
+		ElseIf $aResult[0] = "autologin" Then
+			Global $autologin = $aResult[1]
+		EndIf
+	WEnd
+
+	_Log("einstellungen gespeichert")
+EndFunc
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; GUI action functions
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+Func _browser_verstecken_checkbox()
+			If BitAnd(GUICtrlRead($browser_verstecken_checkbox),$GUI_UNCHECKED) = $GUI_UNCHECKED then
+				GUICtrlSetState($browser_beenden_checkbox, $GUI_ENABLE)
+			EndIf
+			If BitAnd(GUICtrlRead($browser_verstecken_checkbox),$GUI_CHECKED) = $GUI_CHECKED then
+				GUICtrlSetState($browser_beenden_checkbox, $GUI_CHECKED)
+				GUICtrlSetState($browser_beenden_checkbox, $GUI_DISABLE)
+			EndIf
+EndFunc
+
+Func _RohstoffPlanetsCombo()
+	_IELoadWait($oIE2)
+	LOCAL $oQuery, $aResult
+	If (_GUICtrlComboBox_GetCurSel($rohstoff_planet_combo) And Not (_GUICtrlComboBox_GetCurSel($rohstoff_planet_combo) == '0')) Then ;Erste Eintrag aus Combo nicht Hinzufügen
+		LOCAL $selplanet = GUICtrlRead($rohstoff_planet_combo)
+
+		;hole planet id
+		_SQLite_Query($dbn, "SELECT * FROM planets WHERE planame='"&$selplanet&"' AND uniid='"&$server&"'", $oQuery) ;
+		While _SQLite_FetchData($oQuery, $aResult) = $SQLITE_OK
+			LOCAL $sPlaaid = $aResult[3]
+		WEnd
+
+		_IENavigate($oIE2,"http://uni"&$server&".ogame.de/game/index.php?page=overview&cp=" & $sPlaaid) 
+		_readressources("1")
+	EndIf
+EndFunc
+
+										;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+										; POPULATE LISTS WHEN SELECTING A PLANET / ENABLE ADD BUTTONS
+										;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+										Func _PlanetsCombo()
+											If (_GUICtrlComboBox_GetCurSel($planet_combo) And Not (_GUICtrlComboBox_GetCurSel($planet_combo) == '0')) Then ;Erste Eintrag aus Combo nicht Hinzufügen
+												_GUICtrlComboBox_GetCurSel($planet_combo) ; holen aktuelle auswahl aus dem dropdown
+												Local $selplanet = GUICtrlRead($planet_combo)
+												_updatebuildings($gebaude_listview, $selplanet)
+												_updateresearch($forschung_listview, $selplanet)
+												_updatedefense($verteidigung_listview, $selplanet)
+												_updatewerft($werft_listview, $selplanet)
+												GUICtrlSetState($addbuilding_button, $GUI_ENABLE)
+												GUICtrlSetState($addresearch_button, $GUI_ENABLE)
+												GUICtrlSetState($adddefense_button, $GUI_ENABLE)
+												GUICtrlSetState($addwerft_button, $GUI_ENABLE)
+												GUICtrlSetState($gebaude_combo, $GUI_ENABLE)
+												GUICtrlSetState($gebaude_combo, $GUI_ENABLE)
+												GUICtrlSetState($forschung_combo, $GUI_ENABLE)
+												GUICtrlSetState($verteidigung_combo, $GUI_ENABLE)
+												GUICtrlSetState($werft_combo, $GUI_ENABLE)										
+											ElseIf _GUICtrlComboBox_GetCurSel($planet_combo) == '0' Then
+												GUICtrlSetState($addbuilding_button, $GUI_DISABLE)
+												GUICtrlSetState($addresearch_button, $GUI_DISABLE)
+												GUICtrlSetState($adddefense_button, $GUI_DISABLE)
+												GUICtrlSetState($addwerft_button, $GUI_DISABLE)
+												GUICtrlSetState($gebaude_combo, $GUI_DISABLE)
+												GUICtrlSetState($forschung_combo, $GUI_DISABLE)
+												GUICtrlSetState($verteidigung_combo, $GUI_DISABLE)
+												GUICtrlSetState($werft_combo, $GUI_DISABLE)
+												_GUICtrlListView_DeleteAllItems($gebaude_listview)
+												_GUICtrlListView_DeleteAllItems($forschung_listview)
+												_GUICtrlListView_DeleteAllItems($verteidigung_listview)
+												_GUICtrlListView_DeleteAllItems($werft_listview)
+											 EndIf
+										EndFunc
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; SQLite STUFF
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+Func _startsql()
+    Local $retarr
+    _SQLite_Startup()
+    If @error Then Exit MsgBox(16, "SQLite Error", "SQLite.dll nicht gefunden!")
+	_log("SQLite LibVersion=" & _SQLite_LibVersion())
+    GLOBAL $dbn = _SQLite_Open(@ScriptDir & "\obot.sql");
+	
+	;tabellen erstellen wenn nötig
+	;planeten tabelle
+	If _SQLite_Exec($dbn, "CREATE TABLE IF NOT EXISTS planets (ID INTEGER PRIMARY KEY AUTOINCREMENT,planame,placoord,plaid,uniid);") = $SQLITE_OK Then
+    Else
+        _sqlerror(_SQLite_ErrMsg())
+    EndIf
+	;cron
+	If _SQLite_Exec($dbn, "CREATE TABLE IF NOT EXISTS cron (ID INTEGER PRIMARY KEY AUTOINCREMENT,time,planet,planetid,uniid,building,lvl,status,type);") = $SQLITE_OK Then
+    Else
+        _sqlerror(_SQLite_ErrMsg())
+    EndIf
+	;building queue
+	If _SQLite_Exec($dbn, "CREATE TABLE IF NOT EXISTS building_queue (ID INTEGER PRIMARY KEY AUTOINCREMENT,building,planetname,planetid,uniid);") = $SQLITE_OK Then
+    Else
+        _sqlerror(_SQLite_ErrMsg())
+    EndIf
+	;research queue
+	If _SQLite_Exec($dbn, "CREATE TABLE IF NOT EXISTS research_queue (ID INTEGER PRIMARY KEY AUTOINCREMENT,research,planetname,planetid,uniid);") = $SQLITE_OK Then
+    Else
+        _sqlerror(_SQLite_ErrMsg())
+    EndIf
+	;defense queue
+	If _SQLite_Exec($dbn, "CREATE TABLE IF NOT EXISTS defense_queue (ID INTEGER PRIMARY KEY AUTOINCREMENT,defense,planetname,planetid,uniid);") = $SQLITE_OK Then
+    Else
+        _sqlerror(_SQLite_ErrMsg())
+    EndIf
+	;defense queue
+	If _SQLite_Exec($dbn, "CREATE TABLE IF NOT EXISTS werft_queue (ID INTEGER PRIMARY KEY AUTOINCREMENT,werft,planetname,planetid,uniid);") = $SQLITE_OK Then
+    Else
+        _sqlerror(_SQLite_ErrMsg())
+    EndIf
+	;login
+	If _SQLite_Exec($dbn, "CREATE TABLE IF NOT EXISTS logindata (username TEXT, password TEXT, server TEXT);") = $SQLITE_OK Then
+	Else
+		_sqlerror(_SQLite_ErrMsg())
+    EndIf
+	;settings
+	If _SQLite_Exec($dbn, "CREATE TABLE IF NOT EXISTS settings (name TEXT, value TEXT);") = $SQLITE_OK Then
+		_SQLite_QuerySingleRow($dbn, "SELECT rowid FROM settings WHERE name='hidebrowser'", $retarr)
+		If $retarr[0] <> "" Then ;setting bereits vorhanden, nichts machen
+		Else ;setting nicht vorhanden, erstellen!
+			_SQLite_Exec($dbn, "INSERT INTO settings (name, value) VALUES ('hidebrowser','0');")
+		EndIf
+		_SQLite_QuerySingleRow($dbn, "SELECT rowid FROM settings WHERE name='killbrowser'", $retarr)
+		If $retarr[0] <> "" Then ;setting bereits vorhanden, nichts machen
+		Else ;setting nicht vorhanden, erstellen!
+			_SQLite_Exec($dbn, "INSERT INTO settings (name, value) VALUES ('killbrowser','1');")
+		EndIf
+		_SQLite_QuerySingleRow($dbn, "SELECT rowid FROM settings WHERE name='shutdown'", $retarr)
+		If $retarr[0] <> "" Then ;setting bereits vorhanden, nichts machen
+		Else ;setting nicht vorhanden, erstellen!
+			_SQLite_Exec($dbn, "INSERT INTO settings (name, value) VALUES ('shutdown','0');")
+		EndIf
+		_SQLite_QuerySingleRow($dbn, "SELECT rowid FROM settings WHERE name='autologin'", $retarr)
+		If $retarr[0] <> "" Then ;setting bereits vorhanden, nichts machen
+		Else ;setting nicht vorhanden, erstellen!
+			_SQLite_Exec($dbn, "INSERT INTO settings (name, value) VALUES ('autologin','0');")
+		EndIf
+	Else
+		_sqlerror(_SQLite_ErrMsg())
+    EndIf
+EndFunc
+Func _sqlerror($sString)
+    MsgBox(16, "SQL Error:", $sString)
+EndFunc
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; WRITE TO LOG
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+Func _log($text)
+    $text = @HOUR & ":" & @MIN & ":" & @SEC & " : " & $text
+    GUICtrlSetData($Logbox, GUICtrlRead($Logbox) & @CRLF & $text)
+    _GUICtrlEdit_LineScroll($Logbox, 0, _GUICtrlEdit_GetLineCount($Logbox))
+EndFunc
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; WRITE PAGE SOURCE TO FILE
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+Func _HTML()
+	_IELoadWait($oIE)
+	$sSource = _IEDocReadHTML($oIE)
+    If FileExists("ogame.html") Then
+        FileDelete("ogame.html")
+        FileWrite("ogame.html", $sSource)
+    Else
+        FileWrite("ogame.html", $sSource)
+    EndIf
+EndFunc
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; CLEAR EVERYTHING IN DB (except login and settings)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+Func _cleardb()
+_SQLite_Exec($dbn, "DELETE FROM Cron")
+_SQLite_Exec($dbn, "DELETE FROM research_queue")
+_SQLite_Exec($dbn, "DELETE FROM building_queue")
+_SQLite_Exec($dbn, "DELETE FROM defense_queue")
+_SQLite_Exec($dbn, "DELETE FROM werft_queue")
+_SQLite_Exec($dbn, "DELETE FROM planets")
+MsgBox(0,"","alle wartenschlangen und momentan laufende jobs wurden aus der DB gelöscht")
+_Exit()
+EndFunc
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; EXIT
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+Func _exit()
+	If ($hidebrowser = 1 OR $killbrowser = 1) AND IsDeclared("oIE") Then
+		_IEQuit($oIE)
+	EndIf
+	If IsDeclared("oIE2") Then
+		_IEQuit($oIE2)
+	EndIf
+	Exit
+EndFunc
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; START BUTTON
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+Func _start()
+    _log("start")
+	Global $runcheck = 1
+	_core()
+EndFunc
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; STOP BUTTON
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+Func _stop()
+	GLOBAL $runcheck = 0
+	_log("stop")
+EndFunc
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; TIMESTAMP
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+Func _Timestamp()
+    $iDateCalc = _DateDiff('s', "1970/01/01 00:00:00", _NowCalc())
+    Return $iDateCalc
+EndFunc
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; IEGETOBJECTBYID WITH INDEXING!
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+FUNC _IEGETOBJBYID2(BYREF $O_OBJECT, $S_ID, $I_INDEX = 0)
+	IF NOT ISOBJ($O_OBJECT) THEN
+		__IEERRORNOTIFY("ERROR", "_IEGETOBJBYID", "$_IESTATUS_INVALIDDATATYPE")
+		RETURN SETERROR($_IESTATUS_INVALIDDATATYPE, 1, 0)
+	ENDIF
+	;
+	IF NOT __IEISOBJTYPE($O_OBJECT, "BROWSERDOM") THEN
+		__IEERRORNOTIFY("ERROR", "_IEGETOBBYID", "$_IESTATUS_INVALIDOBJECTTYPE")
+		RETURN SETERROR($_IESTATUS_INVALIDOBJECTTYPE, 1, 0)
+	ENDIF
+	;
+    LOCAL $I_FOUND = 0
+    ;
+    $O_TAGS = _IETAGNAMEALLGETCOLLECTION($O_OBJECT)
+    FOR $O_TAG IN $O_TAGS
+        IF STRING($O_TAG.ID) = $S_ID THEN
+            IF ($I_FOUND = $I_INDEX) THEN
+                SETERROR($_IESTATUS_SUCCESS)
+                RETURN $O_TAG
+            ELSE
+                $I_FOUND += 1
+            ENDIF
+        ENDIF
+    NEXT
+    ;
+    __IEERRORNOTIFY("WARNING", "_IEGETOBJBYCLASS", "$_IESTATUS_NOMATCH", $S_ID)
+    SETERROR($_IESTATUS_NOMATCH, 2)
+    RETURN 0
+ENDFUNC
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; SELFMADE IE GET OBJECT BY CLASS WITH INDEXING
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+Func _IEGetObjByClass(ByRef $o_object, $s_Class, $i_index = 0)
+    If Not IsObj($o_object) Then
+        __IEErrorNotify("Error", "_IEGetObjByClass", "$_IEStatus_InvalidDataType")
+        SetError($_IEStatus_InvalidDataType, 1)
+        Return 0
+    EndIf
+    
+    If Not __IEIsObjType($o_object, "browserdom") Then
+        __IEErrorNotify("Error", "_IEGetObjByClass", "$_IEStatus_InvalidObjectType")
+        SetError($_IEStatus_InvalidObjectType, 1)
+        Return 0
+    EndIf
+    
+    Local $i_found = 0
+    
+    $o_tags = _IETagNameAllGetCollection($o_object)
+    For $o_tag In $o_tags
+        If String($o_tag.className) = $s_Class Then
+            If ($i_found = $i_index) Then
+                SetError($_IEStatus_Success)
+                Return $o_tag
+            Else
+                $i_found += 1
+            EndIf
+        EndIf
+    Next
+    
+    __IEErrorNotify("Warning", "_IEGetObjByClass", "$_IEStatus_NoMatch", $s_Class)
+    SetError($_IEStatus_NoMatch, 2)
+    Return 0
+ENDFUNC
