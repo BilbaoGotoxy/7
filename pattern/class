@@ -1,0 +1,275 @@
+#include "StdAfx.h"
+#include "sigScan.h"
+
+
+sigScan::sigScan(void)
+{
+	bMask = NULL;
+	szMask = NULL;
+	hProcess = NULL;
+	dwAddress = NULL;
+	dwLen = NULL;
+	bDumped = NULL;
+}
+
+
+sigScan::~sigScan(void)
+{
+}
+
+DWORD sigScan::dwFindPattern() // by P47R!CK from Gamedeception.net
+{
+	for(DWORD i=0; i < dwLen; i++)
+		if( bDataCompare( (BYTE*)( dwAddress+i )))
+			return (DWORD)(dwAddress+i);
+	return 0;
+}
+
+DWORD sigScan::dwFind()
+{
+	return dwFindPattern();
+}
+
+DWORD sigScan::dwFindEx()
+{
+	if(	bMask == NULL ||
+		szMask == NULL ||
+		hProcess == NULL ||
+		dwAddress == NULL ||
+		dwLen == NULL
+		)
+		return 0;
+
+	return dwFindPatternEx();
+}
+
+bool sigScan::bSetProcessByName(wchar_t* szProcessName, bool bOpenProcess)
+{
+	DWORD dwProcessID = dwGetProcessByName(szProcessName);
+	if(dwProcessID == NULL)
+		return false;
+
+	dwProcess = dwProcessID;
+
+	if(bOpenProcess)
+	{
+		HANDLE hProc = OpenProcess(PROCESS_VM_READ, false, dwProcess);
+		if(hProc == NULL)
+			return false;
+
+		hProcess = hProc;
+	}
+
+	return true;
+}
+
+DWORD sigScan::dwGetProcessByName(wchar_t* szProcessName) // -> http://stackoverflow.com/questions/865152/how-can-i-get-a-process-handle-by-its-name-in-c
+{
+    HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+    PROCESSENTRY32 process;
+    ZeroMemory(&process, sizeof(process));
+    process.dwSize = sizeof(process);
+
+    if (Process32First(snapshot, &process))
+    {
+        do
+        {
+            if (!wcscmp(process.szExeFile, szProcessName))
+            {
+				CloseHandle(snapshot);
+				return process.th32ProcessID;
+            }
+        } 
+		while(Process32Next(snapshot, &process));
+    }
+
+    CloseHandle(snapshot);
+	
+	return NULL;
+}
+
+bool sigScan::bSetLenByModuleSize(wchar_t* szModule)
+{
+	DWORD dwModuleSize = NULL;
+	dwModuleSize = dwGetModuleSize(szModule);
+	if(dwModuleSize == NULL)
+		return false;
+
+	dwLen = dwModuleSize;
+
+	return true;
+}
+
+bool sigScan::bSetAddressByModuleEx(wchar_t* szModule)
+{
+	if(hProcess == NULL)
+		return false;
+
+	DWORD dwModuleBase = NULL;
+	dwModuleBase = dwGetModuleBaseEx(szModule);
+	if(dwModuleBase == NULL)
+		return false;
+
+	dwAddress = dwModuleBase;
+
+	return true;
+}
+
+bool sigScan::bSetAddressByModule(wchar_t* szModule)
+{
+	DWORD dwModuleBase = NULL;
+	dwModuleBase = dwGetModuleBase(szModule);
+	if(dwModuleBase == NULL)
+		return false;
+
+	dwAddress = dwModuleBase;
+
+	return true;
+}
+
+bool sigScan::bSetLenByModuleSizeEx(wchar_t* szModule)
+{
+	if(hProcess == NULL)
+		return false;
+
+	DWORD dwModuleSize = NULL;
+	dwModuleSize = dwGetModuleSizeEx(szModule);
+	if(dwModuleSize == NULL)
+		return false;
+
+	dwLen = dwModuleSize;
+
+	return true;
+}
+
+DWORD sigScan::dwGetModuleSizeEx(wchar_t* szModule)
+{
+	MODULEENTRY32 lpModuleEntry = {0};
+	HANDLE hSnapShot = CreateToolhelp32Snapshot( TH32CS_SNAPMODULE, dwProcess);
+
+	if(!hSnapShot)
+		return NULL;
+
+	lpModuleEntry.dwSize = sizeof(lpModuleEntry);
+	BOOL bModule = Module32First( hSnapShot, &lpModuleEntry );
+	while(bModule)
+	{ 
+		if(!wcscmp( lpModuleEntry.szModule, szModule ) )
+		{
+			CloseHandle( hSnapShot );
+			return lpModuleEntry.modBaseSize;
+		} 
+		bModule = Module32Next( hSnapShot, &lpModuleEntry );
+	} 
+	CloseHandle( hSnapShot );
+
+	return NULL;
+}
+
+bool sigScan::bDumpMem()
+{
+	bDumped = new BYTE[dwLen];
+	SIZE_T bytes_read;
+	if(!ReadProcessMemory(hProcess, (void *) dwAddress, bDumped, dwLen, &bytes_read))
+		return false;
+
+	if(bytes_read != dwLen)
+		return false;
+
+	return true;
+}
+
+bool sigScan::bDataCompare(const BYTE* pData) // by P47R!CK from Gamedeception.net
+{
+	for(;*szMask;++szMask,++pData,++bMask)
+		if(*szMask=='x' && *pData!=*bMask )
+			return false;
+	return (*szMask) == NULL;
+}
+
+DWORD sigScan::dwGetModuleBase(wchar_t* szModuleName)
+{
+	MODULEENTRY32 lpModuleEntry = {0};
+	HANDLE hSnapShot = CreateToolhelp32Snapshot( TH32CS_SNAPMODULE, NULL);
+
+	if(!hSnapShot)
+		return NULL;
+
+	lpModuleEntry.dwSize = sizeof(lpModuleEntry);
+	BOOL bModule = Module32First( hSnapShot, &lpModuleEntry );
+	while(bModule)
+	{ 
+		if(!wcscmp( lpModuleEntry.szModule, szModuleName ) )
+		{
+			CloseHandle( hSnapShot );
+			return (DWORD)lpModuleEntry.modBaseAddr;
+		} 
+		bModule = Module32Next( hSnapShot, &lpModuleEntry );
+	} 
+	CloseHandle( hSnapShot );
+
+	return NULL;
+}
+
+DWORD sigScan::dwGetModuleBaseEx(wchar_t* szModuleName)  // -> http://coding-gods.org/topic/143-srcc-getmodulebase/
+{
+	MODULEENTRY32 lpModuleEntry = {0};
+	HANDLE hSnapShot = CreateToolhelp32Snapshot( TH32CS_SNAPMODULE, dwProcess);
+
+	if(!hSnapShot)
+		return NULL;
+
+	lpModuleEntry.dwSize = sizeof(lpModuleEntry);
+	BOOL bModule = Module32First( hSnapShot, &lpModuleEntry );
+	while(bModule)
+	{ 
+		if(!wcscmp( lpModuleEntry.szModule, szModuleName ) )
+		{
+			CloseHandle( hSnapShot );
+			return (DWORD)lpModuleEntry.modBaseAddr;
+		} 
+		bModule = Module32Next( hSnapShot, &lpModuleEntry );
+	} 
+	CloseHandle( hSnapShot );
+
+	return NULL;
+}
+
+DWORD sigScan::dwGetModuleSize(wchar_t* szModule) // http://pastebin.de/17590 zufällig gefunden :D, keine ahnung an wen die Credits gehn
+{
+    HANDLE hSnap = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE, NULL);
+    if( hSnap == INVALID_HANDLE_VALUE )
+        return 0;
+    MODULEENTRY32 ME32 = {sizeof(MODULEENTRY32)};
+
+    BOOL bSucc = Module32First(hSnap, &ME32);
+    while( bSucc )
+    {
+        if( wcscmp(szModule, ME32.szModule) == 0 )
+        {
+            CloseHandle(hSnap);
+            return ME32.modBaseSize;
+        }
+        bSucc = Module32Next(hSnap, &ME32);
+    }
+    CloseHandle(hSnap);
+    return 0;
+} 
+
+DWORD sigScan::dwFindPatternEx()
+{
+	if(!bDumpMem())
+		return 0;
+
+	for(DWORD i=0; i < dwLen; i++)
+		if( bDataCompare( (BYTE*)( bDumped + i )))
+		{
+			delete [] bDumped;
+			bDumped = NULL;
+			return (DWORD)(dwAddress+i);
+		}
+
+	delete [] bDumped;
+	bDumped = NULL;
+	return 0;
+}
