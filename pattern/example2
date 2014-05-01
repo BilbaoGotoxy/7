@@ -1,0 +1,9 @@
+sigScan scan;
+	scan.bMask = (PBYTE)"\x7A\xDA\x77\x52\x78\xDA\x77\x67\xD7\xDA\x77\x00\x00\x00\x00\x70\xD2\x3A\x77\x00\x00\x00";
+	scan.szMask = "xxxxxxxxxxxxxxxxxxxxxx";
+        HANDLE hProc = OpenProcess(PROCESS_VM_READ, false, 0xDE4);
+        //hProc  noch prüfen^^
+        scan.hProcess = hProc;
+        scan.dwLen = 0x4000;
+        scan.dwAddress = 0x1001000;
+        std::wcout << scan.dwFindEx() << std::endl;
