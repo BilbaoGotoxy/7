@@ -235,7 +235,7 @@ DWORD sigScan::dwGetModuleBaseEx(wchar_t* szModuleName)  // -> http://coding-god
 	return NULL;
 }
 
-DWORD sigScan::dwGetModuleSize(wchar_t* szModule) // http://pastebin.de/17590 zufällig gefunden :D, keine ahnung an wen die Credits gehn
+DWORD sigScan::dwGetModuleSize(wchar_t* szModule) // random pastebin found w/o name
 {
     HANDLE hSnap = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE, NULL);
     if( hSnap == INVALID_HANDLE_VALUE )
